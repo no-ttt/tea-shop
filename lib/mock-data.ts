@@ -678,6 +678,7 @@ export const CUSTOMER_FIELDS: CustomerField[] = [
 // 只保留 productIds 非空的組合折扣（原資料中還有一個空白模板組合，永遠不會符合條件，故排除）
 export const BUNDLE_DISCOUNTS: BundleDiscount[] = [
   {
+    id: "bd1",
     name: "組合折扣",
     productIds: ["n14", "n15"],
     discountType: "percent",

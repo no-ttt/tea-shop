@@ -71,17 +71,6 @@
   transform: scale(1.06);
 }
 
-.photoEmpty {
-  font-size: 12px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  padding: 14px;
-  text-align: center;
-  margin-bottom: 10px;
-}
-
 .weightOptions {
   display: flex;
   gap: 8px;

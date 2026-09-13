@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-@AGENTS.md
-
 ## What this is
 
 A Next.js rewrite of the consumer-facing storefront and checkout flow from `../index.html` (a self-contained static HTML tea e-commerce site — see `../CLAUDE.md` for that file's structure). This rewrite covers browsing → cart → checkout only; the original's password-protected admin CMS and real Formspree/Google Sheets/LINE Pay integrations are deliberately not ported. See `TODO.md` for what's deferred and why, and `ORIGINAL_INTEGRATIONS.md` for exactly how the original site's order-notification flow worked (useful if/when those integrations get built here).
@@ -30,3 +28,13 @@ No test runner is configured yet (see `TODO.md` item 6).
 - **`POST /api/orders`** (`app/api/orders/route.ts` → `lib/data.ts#createOrder`) — validates the full order (empty cart, per-field required/format checks — `lineId` is only required once the cart qualifies for free shipping, mirroring the original's conditional-visibility rule — CVS store name, gift recipient name, payment confirmation code) with error messages copied verbatim from the original site's `submitOrder()`, then returns a mocked `OrderConfirmation` with `status: "pending_payment"`. It does **not** call Formspree, Google Sheets, or any payment provider — see `ORIGINAL_INTEGRATIONS.md`.
 - **Images** live under `public/images/` (`regions/`, `products/`), decoded from the base64 embedded in the original `index.html`; region background filenames were transliterated to ASCII (`fengtu-fajiao`, `zoushui-tanbei`) since CJK filenames aren't reliably URL-safe.
 - **RWD breakpoints are `<480px` / `480–800px` / `≥800px`**, intentionally redesigned rather than copied from the original (which only had two inconsistent breakpoints at 760px and 800px for background-image and layout respectively — a real gap, not a stylistic choice). Desktop (`≥800px`) uses a two-column layout with a `position: sticky` cart.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

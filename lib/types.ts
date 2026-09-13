@@ -37,6 +37,7 @@ export interface CustomerField {
 }
 
 export interface BundleDiscount {
+  id: string;
   name: string;
   productIds: string[];
   discountType: "amount" | "percent";

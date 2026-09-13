@@ -1,0 +1,580 @@
+.pageTitle {
+  font-size: 19px;
+  letter-spacing: 2px;
+  margin: 0 0 16px;
+  font-weight: 400;
+}
+
+.section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  margin: 0 0 12px;
+  color: var(--accent);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.input,
+.textarea {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cream);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.select {
+  appearance: none;
+  padding: 9px 34px 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--cream);
+  font-size: 13px;
+  font-family: inherit;
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23c98a4b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+
+.select:hover {
+  border-color: rgba(201, 138, 75, 0.55);
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(201, 138, 75, 0.18);
+}
+
+.select option {
+  color: #241c14;
+  background: #f3ede1;
+  padding: 6px;
+}
+
+.button {
+  background: var(--accent);
+  color: #2b1c0f;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.buttonSecondary {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.buttonDanger {
+  background: none;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+}
+
+.cardEditing {
+  border-color: var(--accent);
+  background: rgba(201, 138, 75, 0.08);
+}
+
+.cardNoBorder {
+  padding: 10px 0;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cardNoBorder:last-of-type {
+  border-bottom: none;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fieldRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fieldRow > .field {
+  flex: 1;
+  min-width: 120px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.emptyState {
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.thumbRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbRemove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.uploadSlot {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 11.5px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 16px;
+  margin: 10px 0;
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.checkboxItem input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* 組合折扣：品項下拉式多選選單 —— 對照 index.html 的 .multi-select-wrap */
+.multiSelectWrap {
+  position: relative;
+  width: 100%;
+  margin: 6px 0;
+}
+
+.multiSelectBtn {
+  width: 100%;
+  text-align: left;
+  padding: 9px 34px 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--cream);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.multiSelectBtn::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 10px;
+  height: 7px;
+  margin-top: -3px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23c98a4b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.multiSelectBtn:hover {
+  border-color: rgba(201, 138, 75, 0.55);
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.multiSelectWrapOpen .multiSelectBtn {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(201, 138, 75, 0.18);
+}
+
+.multiSelectPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background-color: rgba(243, 237, 225, 0.97);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  display: none;
+}
+
+.multiSelectWrapOpen .multiSelectPanel {
+  display: block;
+}
+
+.multiSelectOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #241c14;
+  cursor: pointer;
+}
+
+.multiSelectOption:hover {
+  background: rgba(201, 138, 75, 0.18);
+}
+
+.bgPreview {
+  width: 100%;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.bgPreview img {
+  object-fit: cover;
+}
+
+.bgPreviewLabel {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.helpText {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 4px 0 0;
+}
+
+.helpText + .button,
+.helpText + .buttonSecondary,
+.helpText + .buttonDanger,
+.helpText + .field,
+.helpText + .toolbar {
+  margin-top: 10px;
+}
+
+.button + .helpText,
+.buttonSecondary + .helpText,
+.buttonDanger + .helpText {
+  margin-top: 10px;
+}
+
+/* 商品狀態管理 / 客戶欄位列 —— 對照 index.html 的 .admin-product-item / .admin-row */
+.statusRow {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+}
+
+.statusRowHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.statusRowHeader .n,
+.n {
+  font-weight: 700;
+}
+
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.inlineRow:last-child {
+  margin-bottom: 0;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.colorSwatch {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 44px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.colorSwatch::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.colorSwatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+/* 文字大小 / 顏色滑桿 —— 對照 .admin-slider-row */
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sliderRow:last-child {
+  margin-bottom: 0;
+}
+
+.sliderRow label {
+  width: 130px;
+  font-size: 12.5px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.sliderRow input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.sliderRow .sliderVal {
+  width: 44px;
+  text-align: right;
+  font-size: 12px;
+}
+
+/* 即時預覽卡片 —— 對照 .admin-preview-box */
+.previewBox {
+  border: 1px solid rgba(201, 138, 75, 0.3);
+  border-radius: 10px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(20, 16, 12, 0.55), rgba(20, 16, 12, 0.75)),
+    linear-gradient(135deg, #3a2f24, #241c14);
+}
+
+.previewTitle {
+  text-align: center;
+  letter-spacing: 4px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.previewItem {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.previewPrice {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.previewPrice b {
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.previewTag {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* 儲存空間用量條 —— 對照 .storage-usage-bar */
+.storageBar {
+  width: 100%;
+  height: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.storageFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s, background 0.3s;
+}
+
+.storageFill.warn {
+  background: #e0a23a;
+}
+
+.storageFill.danger {
+  background: var(--danger);
+}
+
+.textareaCode {
+  width: 100%;
+  height: 220px;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--cream);
+  resize: vertical;
+}

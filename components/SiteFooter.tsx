@@ -18,14 +18,6 @@ export default function SiteFooter({ onOpenPolicy }: { onOpenPolicy: (key: Polic
             退換貨政策
           </button>
         </div>
-        <button
-          type="button"
-          className={styles.topBtn}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="回到頂部"
-        >
-          ↑
-        </button>
       </div>
       <div className={styles.company}>棋願製造　61032839</div>
     </div>

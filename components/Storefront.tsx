@@ -15,6 +15,8 @@ import type {
 import { LOGO_IMAGE } from "@/lib/mock-data";
 import { calcOrderTotals } from "@/lib/pricing";
 import type { PolicyKey } from "@/lib/policy-content";
+import BackToTop from "./BackToTop";
+import ScrollToCart from "./ScrollToCart";
 import RegionBackground from "./RegionBackground";
 import RegionTabs from "./RegionTabs";
 import ProductList from "./ProductList";
@@ -159,7 +161,7 @@ export default function Storefront({
           />
         </div>
 
-        <div className={styles.cartCard}>
+        <div className={styles.cartCard} id="cart-section">
           <Cart
             cart={cart}
             totals={totals}
@@ -174,6 +176,9 @@ export default function Storefront({
       </div>
 
       <SiteFooter onOpenPolicy={setPolicyKey} />
+
+      <BackToTop />
+      <ScrollToCart />
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
 

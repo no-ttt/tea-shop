@@ -18,6 +18,11 @@
 
 **建議**：等 `lib/data.ts` 換成真資料庫查詢後，再依照現有的 GET API routes（`/api/regions`、`/api/products`、`/api/statuses`、`/api/checkout/fields`、`/api/bundle-discounts`）分別補上對應的 POST/PATCH/DELETE，並在 `/admin` 路由下做一個需要登入才能進入的管理介面。
 
+**補充**：
+- 目前 `/admin` 底下沒有登入頁與密碼保護，任何人都能直接進入——之後接上真正的認證機制（登入頁 + session）時再補上。
+- 「字體大小與顏色」分頁（原站可即時調整標題/品項/價格字級與顏色並套用到前台）這次沒有做畫面：Next.js 版的字級/顏色是寫死在 `app/globals.css` 的靜態 design tokens，沒有可在執行期調整的機制；要做這個分頁除了後台表單之外，還要另外修改 storefront 的渲染端去讀取並套用覆寫值，牽動範圍較大，故先不做。
+- 原站的「匯出網頁」分頁（把整頁 DOM 序列化匯出成新的靜態 HTML 檔案，因應原站沒有後端、localStorage/IndexedDB 是唯一資料庫的架構）在這次的 Next.js 後台中直接移除，不是延後——等真正接上資料庫後，存檔會直接寫資料庫，沒有「檔案」可以匯出重新上傳，這個功能在新架構下沒有對應需求。
+
 ## 2. Formspree／Google Apps Script 真實串接
 
 `POST /api/orders` 目前只做驗證與金額計算，不會呼叫任何外部服務。原網站怎麼做的，見 [ORIGINAL_INTEGRATIONS.md](ORIGINAL_INTEGRATIONS.md)。

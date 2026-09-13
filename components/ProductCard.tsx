@@ -53,7 +53,7 @@ export default function ProductCard({
         {product.note && <span className={styles.note}>{product.note}</span>}
       </div>
 
-      {product.images.length > 0 ? (
+      {product.images.length > 0 && (
         <div className={styles.photoGrid}>
           {product.images.map((src, i) => (
             <button
@@ -67,8 +67,6 @@ export default function ProductCard({
             </button>
           ))}
         </div>
-      ) : (
-        <div className={styles.photoEmpty}>尚無商品照片</div>
       )}
 
       {prices && (
