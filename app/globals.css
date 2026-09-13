@@ -1,0 +1,38 @@
+:root {
+  --ink: #2b2620;
+  --cream: #f3ede1;
+  --muted: #c9bfa8;
+  --accent: #c98a4b;
+  --accent-dark: #9c6530;
+  --line: rgba(255, 255, 255, 0.18);
+  --card-bg: rgba(20, 17, 13, 0.55);
+  --danger: #d97b63;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Serif TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", serif;
+  color: var(--cream);
+  min-height: 100vh;
+  padding: 28px 16px 90px;
+  position: relative;
+  background: #191410;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}

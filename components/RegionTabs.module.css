@@ -1,0 +1,34 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.tab {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--cream);
+  font-size: 12.5px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #2b1c0f;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .tab {
+    padding: 7px 12px;
+    font-size: 11.5px;
+  }
+}

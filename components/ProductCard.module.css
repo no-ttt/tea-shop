@@ -1,0 +1,175 @@
+.item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.disabled {
+  opacity: 0.55;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: var(--cream);
+  white-space: pre-line;
+}
+
+.note {
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.statusTag {
+  font-size: 12px;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+  border-radius: 6px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.photoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.photoThumb {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0;
+  position: relative;
+}
+
+.photoThumb img {
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.photoThumb:hover img {
+  transform: scale(1.06);
+}
+
+.photoEmpty {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.weightOptions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.weightBtn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cream);
+  cursor: pointer;
+  font-size: 12.5px;
+  text-align: center;
+  min-width: 74px;
+  transition: all 0.15s;
+}
+
+.g {
+  font-weight: 700;
+  font-size: 13.5px;
+  display: block;
+  color: var(--cream);
+}
+
+.p {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.weightBtnSelected {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.gSelected,
+.pSelected {
+  color: #2b1c0f;
+}
+
+.bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.preview b {
+  color: var(--cream);
+  font-size: 14.5px;
+}
+
+.addBtn {
+  background: var(--accent);
+  color: #2b1c0f;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.addBtn:disabled {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.addBtn:not(:disabled):hover {
+  background: var(--accent-dark);
+}
+
+@media (max-width: 480px) {
+  .weightBtn {
+    min-width: 64px;
+    padding: 7px 10px;
+  }
+  .name {
+    font-size: 14.5px;
+  }
+}
