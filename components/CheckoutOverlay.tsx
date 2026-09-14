@@ -34,6 +34,7 @@ export default function CheckoutOverlay({
   cart,
   totals,
   customerFields,
+  linePayQrImage,
   onClose,
   onSubmit,
 }: {
@@ -41,6 +42,7 @@ export default function CheckoutOverlay({
   cart: CartLine[];
   totals: OrderTotals;
   customerFields: CustomerField[];
+  linePayQrImage: string;
   onClose: () => void;
   onSubmit: (
     payload: OrderPayload,
@@ -53,6 +55,7 @@ export default function CheckoutOverlay({
   const [email, setEmail] = useState("");
   const [zip, setZip] = useState("");
   const [address, setAddress] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [birthYear, setBirthYear] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthDay, setBirthDay] = useState("");
@@ -74,6 +77,7 @@ export default function CheckoutOverlay({
 
   const qualifiesForGroup = totals.qualifiesForFreeShipping;
   const lineIdField = customerFields.find((f) => f.id === "lineId");
+  const customFields = customerFields.filter((f) => !f.builtin);
 
   const handlePaymentSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
@@ -109,6 +113,7 @@ export default function CheckoutOverlay({
     const payload: OrderPayload = {
       cart,
       customer: { name, phone, lineId: extra.lineId, email, zip: extra.zip, address: extra.address },
+      customFieldValues: customFields.length > 0 ? customFieldValues : undefined,
       birthday: extra.birthday,
       isGift,
       giftName: extra.giftName,
@@ -182,6 +187,20 @@ export default function CheckoutOverlay({
             </label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
+          {customFields.map((field) => (
+            <div className={shared.formField} key={field.id}>
+              <label>
+                {field.label} {field.required && <span className={shared.requiredMark}>*</span>}
+              </label>
+              <input
+                type={field.type}
+                value={customFieldValues[field.id] ?? ""}
+                onChange={(e) =>
+                  setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                }
+              />
+            </div>
+          ))}
           <div className={shared.formField}>
             <label>生日（選填）</label>
             <div style={{ display: "flex", gap: 8 }}>
@@ -365,24 +384,27 @@ export default function CheckoutOverlay({
         </div>
       </div>
 
-      <BankTransferModal
-        open={bankModalOpen}
-        onConfirm={(last5) => {
-          setBankTransferLast5(last5);
-          setBankModalOpen(false);
-        }}
-        onCancel={() => setBankModalOpen(false)}
-      />
+      {bankModalOpen && (
+        <BankTransferModal
+          onConfirm={(last5) => {
+            setBankTransferLast5(last5);
+            setBankModalOpen(false);
+          }}
+          onCancel={() => setBankModalOpen(false)}
+        />
+      )}
 
-      <LinePayQrModal
-        open={linePayQrOpen}
-        onConfirm={(last3) => {
-          setLinePayLast3(last3);
-          setLinePayQrOpen(false);
-          setLinePayConfirmOpen(true);
-        }}
-        onCancel={() => setLinePayQrOpen(false)}
-      />
+      {linePayQrOpen && (
+        <LinePayQrModal
+          qrImage={linePayQrImage}
+          onConfirm={(last3) => {
+            setLinePayLast3(last3);
+            setLinePayQrOpen(false);
+            setLinePayConfirmOpen(true);
+          }}
+          onCancel={() => setLinePayQrOpen(false)}
+        />
+      )}
 
       <LinePayConfirmModal
         open={linePayConfirmOpen}

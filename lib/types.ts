@@ -65,6 +65,8 @@ export interface OrderPayload {
     zip?: string;
     address?: string;
   };
+  /** 店家在後台新增的自訂客戶欄位（CustomerField.builtin === false）填寫值，key 為欄位 id */
+  customFieldValues?: Record<string, string>;
   birthday?: string;
   isGift: boolean;
   giftName?: string;
@@ -85,9 +87,11 @@ export interface OrderTotals {
   total: number;
 }
 
+export type OrderStatus = "pending_payment" | "paid" | "cancelled";
+
 export interface OrderConfirmation extends OrderTotals {
   orderId: string;
-  status: "pending_payment";
+  status: OrderStatus;
   cart: CartLine[];
 }
 

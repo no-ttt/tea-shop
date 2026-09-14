@@ -1,4 +1,3 @@
-import { BUNDLE_DISCOUNTS, FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "./mock-data";
 import type { BundleDiscount, CartLine, OrderTotals } from "./types";
 
 export function calcSubtotal(cart: CartLine[]): number {
@@ -14,10 +13,7 @@ interface BundleMatch {
  * 購物車必須同時包含某組合折扣指定的每個商品各一件才套用；
  * 若同時符合多組，只套用折扣金額最高的那一組（不疊加）。
  */
-export function calcBundleDiscount(
-  cart: CartLine[],
-  bundles: BundleDiscount[] = BUNDLE_DISCOUNTS,
-): BundleMatch {
+export function calcBundleDiscount(cart: CartLine[], bundles: BundleDiscount[]): BundleMatch {
   const cartProductIds = new Set(cart.map((line) => line.productId));
   const subtotal = calcSubtotal(cart);
 
@@ -41,23 +37,25 @@ export function calcBundleDiscount(
   return best;
 }
 
-export function qualifiesForFreeShipping(total: number): boolean {
-  return total >= FREE_SHIPPING_THRESHOLD;
+export function qualifiesForFreeShipping(total: number, threshold: number): boolean {
+  return total >= threshold;
 }
 
-export function calcShippingFee(total: number): number {
-  return qualifiesForFreeShipping(total) ? 0 : SHIPPING_FEE;
+export function calcShippingFee(total: number, threshold: number, fee: number): number {
+  return qualifiesForFreeShipping(total, threshold) ? 0 : fee;
 }
 
 export function calcOrderTotals(
   cart: CartLine[],
-  bundles: BundleDiscount[] = BUNDLE_DISCOUNTS,
+  bundles: BundleDiscount[],
+  threshold: number,
+  fee: number,
 ): OrderTotals {
   const subtotal = calcSubtotal(cart);
   const bundle = calcBundleDiscount(cart, bundles);
   const afterDiscount = Math.max(0, subtotal - bundle.amount);
-  const shippingFee = calcShippingFee(afterDiscount);
-  const qualifies = qualifiesForFreeShipping(afterDiscount);
+  const shippingFee = calcShippingFee(afterDiscount, threshold, fee);
+  const qualifies = qualifiesForFreeShipping(afterDiscount, threshold);
 
   return {
     subtotal,

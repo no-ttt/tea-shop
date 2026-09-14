@@ -1,6 +1,5 @@
 import Image from "next/image";
 import type { Product, ProductStatus } from "@/lib/types";
-import { WEIGHT_OPTIONS } from "@/lib/mock-data";
 import styles from "./ProductCard.module.css";
 
 function fmt(n: number): string {
@@ -15,6 +14,7 @@ export default function ProductCard({
   product,
   status,
   selectedWeight,
+  weightOptions,
   onSelectWeight,
   onAddToCart,
   onOpenLightbox,
@@ -22,6 +22,7 @@ export default function ProductCard({
   product: Product;
   status: ProductStatus;
   selectedWeight: number | null;
+  weightOptions: number[];
   onSelectWeight: (productId: string, weight: number) => void;
   onAddToCart: (productId: string) => void;
   onOpenLightbox: (src: string) => void;
@@ -71,7 +72,7 @@ export default function ProductCard({
 
       {prices && (
         <div className={styles.weightOptions}>
-          {WEIGHT_OPTIONS.map((w) => (
+          {weightOptions.map((w) => (
             <button
               key={w}
               type="button"

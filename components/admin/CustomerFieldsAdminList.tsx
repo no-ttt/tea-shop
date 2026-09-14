@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import type { CustomerField } from "@/lib/types";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/mock-data";
 import ConfirmDialog from "./ConfirmDialog";
 import styles from "./adminShared.module.css";
 
-export default function CustomerFieldsAdminList({ fields: initialFields }: { fields: CustomerField[] }) {
+export default function CustomerFieldsAdminList({
+  fields: initialFields,
+  freeShippingThreshold,
+}: {
+  fields: CustomerField[];
+  freeShippingThreshold: number;
+}) {
   const [fields, setFields] = useState(initialFields);
   const [addingNew, setAddingNew] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -40,7 +45,12 @@ export default function CustomerFieldsAdminList({ fields: initialFields }: { fie
 
         <div>
           {fields.map((field) => (
-            <FieldRow key={field.id} field={field} onDelete={() => setDeletingId(field.id)} />
+            <FieldRow
+              key={field.id}
+              field={field}
+              freeShippingThreshold={freeShippingThreshold}
+              onDelete={() => setDeletingId(field.id)}
+            />
           ))}
         </div>
 
@@ -100,12 +110,20 @@ function lineIdLabelFor(threshold: number) {
   return `LINE ID（滿 ${threshold.toLocaleString("zh-TW")} 元可加入會員專屬群組）`;
 }
 
-function FieldRow({ field, onDelete }: { field: CustomerField; onDelete: () => void }) {
+function FieldRow({
+  field,
+  freeShippingThreshold,
+  onDelete,
+}: {
+  field: CustomerField;
+  freeShippingThreshold: number;
+  onDelete: () => void;
+}) {
   const isLineId = field.id === "lineId";
   const [required, setRequired] = useState(field.required);
   const [renaming, setRenaming] = useState(false);
-  const [threshold, setThreshold] = useState(FREE_SHIPPING_THRESHOLD);
-  const [label, setLabel] = useState(isLineId ? lineIdLabelFor(FREE_SHIPPING_THRESHOLD) : field.label);
+  const [threshold, setThreshold] = useState(freeShippingThreshold);
+  const [label, setLabel] = useState(isLineId ? lineIdLabelFor(freeShippingThreshold) : field.label);
 
   const handleThresholdChange = (value: number) => {
     setThreshold(value);

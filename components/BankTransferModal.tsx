@@ -2,17 +2,13 @@ import { useState } from "react";
 import shared from "./checkoutShared.module.css";
 
 export default function BankTransferModal({
-  open,
   onConfirm,
   onCancel,
 }: {
-  open: boolean;
   onConfirm: (last5: string) => void;
   onCancel: () => void;
 }) {
   const [last5, setLast5] = useState("");
-
-  if (!open) return null;
 
   return (
     <div className={shared.overlay} style={{ zIndex: 60 }}>

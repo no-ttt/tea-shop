@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789376621565,
+      "tag": "0000_huge_frightful_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789381161959,
+      "tag": "0001_brave_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789392579266,
+      "tag": "0002_fuzzy_hercules",
+      "breakpoints": true
+    }
+  ]
+}

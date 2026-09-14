@@ -6,19 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:dev": "opennextjs-cloudflare build && wrangler dev",
+    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply qiwish-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply qiwish-db --remote",
+    "db:seed:dump": "wrangler d1 export qiwish-db --local --output=drizzle/seed.sql --no-schema -y --table=regions --table=product_statuses --table=products --table=product_images --table=customer_fields --table=bundle_discounts --table=bundle_discount_products --table=site_settings && node scripts/wrap-seed-transaction.mjs",
+    "db:seed:local": "wrangler d1 execute qiwish-db --local --file=drizzle/seed.sql",
+    "db:seed:remote": "wrangler d1 execute qiwish-db --remote --file=drizzle/seed.sql"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "resend": "^6.28.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
-    "typescript": "^5"
+    "tsx": "^4.23.13",
+    "typescript": "^5",
+    "wrangler": "^4.131.2"
   }
 }

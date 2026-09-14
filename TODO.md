@@ -1,54 +1,53 @@
 # 待辦事項
 
-這份文件記錄這次從 `origin.html`（原本的棋願製造單頁式商店）遷移到 Next.js 時，刻意沒有做的項目，以及原因與後續建議。消費者購物流程（分區瀏覽 → 加入購物車 → 結帳）已 100% 遷移完成，資料層目前是 mock data，透過 API routes 提供。
+這份文件記錄專案目前的進度與後續規劃。消費者購物流程（分區瀏覽 → 加入購物車 → 結帳）已 100% 遷移完成。
 
-## 1. 後台管理 CMS
+**目前正在進行**：資料庫（Cloudflare D1）+ 後台管理 CRUD + 登入驗證 + 主題/商業規則設定 + 購物車持久化 + 訂單 Email 通知。完整計畫與分批進度追蹤請見 `/Users/no/.claude/plans/sqlite-shimmering-valiant.md`（Claude Code 計畫檔）。以下依原本的待辦分類，標註各項目目前狀態。
 
-原網站有一個完整的前端 CMS（密碼登入 `adminLogin()` + 多分頁管理面板 `#adminOverlay`），可以管理：
+## 1. 後台管理 CMS —— 進行中
 
-- 商品（新增/編輯/刪除、圖片上傳、狀態標籤）
-- 分區（新增/編輯、桌機/手機底圖上傳）
-- 字體大小與顏色（即時預覽）
-- 客戶資料欄位（新增/改名/刪除/必填切換）
-- 組合折扣（新增/刪除）
-- 購買紀錄查詢（串接 Google Sheets）+ Excel 匯出
-- 其他設定（Formspree/Google Sheets 網址、LINE Pay QR、管理密碼、匯出整份網站）
+原網站有一個完整的前端 CMS（密碼登入 + 多分頁管理面板），管理商品、分區、字體大小與顏色、客戶資料欄位、組合折扣、購買紀錄、其他設定。Next.js 版的後台頁面（`app/admin/**`）畫面與表單已經做好，但目前尚未串接真正的後端。
 
-**這次沒有實作**，理由：CMS 的資料寫入對象應該是真正的資料庫，而這次的 `lib/data.ts` 還是 mock data，在資料庫確定之前先做 CMS 介面容易做兩次工。
+**這次計畫要做的**：
+- 資料庫改用 Cloudflare D1（取代原本規劃的 mock data / 待定資料庫），`lib/admin-data.ts` + `app/api/admin/**` 提供完整 CRUD（產品、產區、組合優惠、客戶欄位、產品狀態、訂單狀態、系統設定）
+- 登入驗證：單一管理密碼 + HMAC 簽章 cookie，`middleware.ts` 保護 `/admin/**` 與 `/api/admin/**`，並支援後台修改密碼（資料庫覆蓋環境變數預設值）
+- **字體大小與顏色**：這次一併實作，改為 `site_settings` 資料表儲存、後台可編輯，前台透過 `app/layout.tsx` 注入 CSS 變數動態套用（不再是寫死的 design tokens）
+- 「匯出網頁」分頁：維持移除，不會恢復（資料庫架構下沒有對應需求）
+- 購買紀錄查詢（原本串 Google Sheets）：這次改為直接查詢 D1 的 `orders`/`order_items` 資料表，不再需要 Google Sheets；Excel 匯出功能視後續需要再評估是否補上
 
-**建議**：等 `lib/data.ts` 換成真資料庫查詢後，再依照現有的 GET API routes（`/api/regions`、`/api/products`、`/api/statuses`、`/api/checkout/fields`、`/api/bundle-discounts`）分別補上對應的 POST/PATCH/DELETE，並在 `/admin` 路由下做一個需要登入才能進入的管理介面。
+## 2. Formspree／Google Apps Script 真實串接 —— 進行中（改用 Resend + D1）
 
-**補充**：
-- 目前 `/admin` 底下沒有登入頁與密碼保護，任何人都能直接進入——之後接上真正的認證機制（登入頁 + session）時再補上。
-- 「字體大小與顏色」分頁（原站可即時調整標題/品項/價格字級與顏色並套用到前台）這次沒有做畫面：Next.js 版的字級/顏色是寫死在 `app/globals.css` 的靜態 design tokens，沒有可在執行期調整的機制；要做這個分頁除了後台表單之外，還要另外修改 storefront 的渲染端去讀取並套用覆寫值，牽動範圍較大，故先不做。
-- 原站的「匯出網頁」分頁（把整頁 DOM 序列化匯出成新的靜態 HTML 檔案，因應原站沒有後端、localStorage/IndexedDB 是唯一資料庫的架構）在這次的 Next.js 後台中直接移除，不是延後——等真正接上資料庫後，存檔會直接寫資料庫，沒有「檔案」可以匯出重新上傳，這個功能在新架構下沒有對應需求。
+`POST /api/orders` 原本只做驗證與金額計算，不會呼叫任何外部服務。原網站的作法見 [ORIGINAL_INTEGRATIONS.md](ORIGINAL_INTEGRATIONS.md)。
 
-## 2. Formspree／Google Apps Script 真實串接
+**這次計畫要做的**：
+- Google Sheets 完全由 Cloudflare D1 取代，訂單資料直接寫入資料庫，不再需要外部試算表
+- Email 通知改用 **Resend**（取代 Formspree），訂單建立成功後以 fire-and-forget 方式寄送通知信給店家，寄信失敗不影響訂單建立結果，並記錄在伺服器 log
+- 新增 `order_failure_logs` 資料表，記錄**系統性訂單失敗**（資料庫寫入失敗等未預期例外），供後台查看排查；一般客戶輸入驗證失敗（如空購物車）維持回傳 400，不特別記錄
 
-`POST /api/orders` 目前只做驗證與金額計算，不會呼叫任何外部服務。原網站怎麼做的，見 [ORIGINAL_INTEGRATIONS.md](ORIGINAL_INTEGRATIONS.md)。
+## 3. LINE Pay／匯款金流 —— 維持現況，暫不處理
 
-**建議**：正式上線前，在 `lib/data.ts` 的 `createOrder()` 驗證通過之後，依照 `ORIGINAL_INTEGRATIONS.md` 的說明加上對應的通知/寫入呼叫，或改用更穩定的方案（例如正式的 email 服務、資料庫直接寫入取代 Google Sheets）。
+目前的「匯款後五碼」「LINE Pay 後三碼」都只是使用者自行回報的確認碼，並沒有真正對接金流或銀行 API 做核對，這點與原網站相同。**本次資料庫/後台專案明確排除這塊**，維持自報確認碼的人工核對方式。
 
-## 3. LINE Pay／匯款金流
+**建議**：若未來要接真正的第三方金流（例如 LINE Pay Online API），需要新增伺服器端的付款狀態查詢與 callback 處理，`OrderConfirmation` 的 `status` 欄位也要從固定的 `"pending_payment"` 改成依實際金流狀態變化（資料庫已預留 `paid`/`cancelled` 狀態值，方便未來擴充）。
 
-目前的「匯款後五碼」「LINE Pay 後三碼」都只是使用者自行回報的確認碼，並沒有真正對接金流或銀行 API 做核對，這點與原網站相同（原網站本來就是人工核對後五碼/後三碼，不是即時金流串接）。
+## 4. 購物車持久化 —— 進行中
 
-**建議**：若未來要接真正的第三方金流（例如 LINE Pay Online API），需要新增伺服器端的付款狀態查詢與 callback 處理，`OrderConfirmation` 的 `status` 欄位也要從目前固定的 `"pending_payment"` 改成會依實際金流狀態變化。
+購物車目前是純 React state（`Storefront.tsx` 的 `cart`），重新整理頁面會清空。
 
-## 4. 購物車持久化
+**這次計畫要做的**：用 `localStorage` 保存購物車內容，頁面載入時還原（採用掛載後才讀取的 hydration 模式，避免 SSR 不一致問題）。
 
-購物車目前是純 React state（`Storefront.tsx` 的 `cart`），重新整理頁面會清空。這與原網站行為一致（原網站的 `cart` 也只是頁面內的 JS 變數，沒有做 localStorage 持久化）。
+## 5. 訂單沒有真正儲存 —— 進行中
 
-**建議**：若要改善使用者體驗，可以用 `localStorage` 或 `sessionStorage` 保存購物車內容，頁面載入時還原。
+`createOrder()` 目前只回傳模擬的訂單確認，訂單資料不會被儲存在任何地方。
 
-## 5. 訂單沒有真正儲存
+**這次計畫要做的**：訂單與明細寫入 D1 的 `orders`/`order_items` 資料表（交易寫入），訂單編號可查詢，重新整理或伺服器重啟都不會遺失資料。
 
-`createOrder()` 目前只回傳模擬的訂單確認，訂單資料不會被儲存在任何地方（重新整理後訂單完成頁的資料也會消失，因為它只存在於 `Storefront.tsx` 的 state 裡）。
+## 6. 自動化測試 —— 維持現況，暫不處理
 
-**建議**：資料庫接上後，`createOrder()` 應該把訂單寫入資料庫並回傳可查詢的訂單編號，讓客人或店家之後可以用訂單編號查詢訂單狀態。
-
-## 6. 自動化測試
-
-目前的驗證方式是手動 `curl` API、`npx tsc --noEmit`、`npm run lint`，以及用 Playwright 手動跑過一次瀏覽器互動流程，還沒有寫成可重複執行的測試檔案（例如 Vitest + Playwright Test）。
+目前的驗證方式是手動 `curl` API、`npx tsc --noEmit`、`npm run lint`，以及手動跑過一次瀏覽器互動流程，還沒有寫成可重複執行的測試檔案。**本次資料庫/後台專案明確排除這塊**。
 
 **建議**：至少替 `lib/pricing.ts`（金額計算，尤其是組合折扣與運費門檻）與 `POST /api/orders` 的驗證規則補上單元測試，這兩處的邏輯最容易在未來修改時被不小心改壞。
+
+## 部署目標：Cloudflare
+
+專案確定部署到 Cloudflare（Workers/Pages + D1），這也是選用 Cloudflare D1 而非一般 SQLite 檔案的原因（`better-sqlite3` 等原生模組無法在 Cloudflare Workers 執行）。Next.js 的 Cloudflare 轉接器規劃使用 `@opennextjs/cloudflare`，但其對 Next.js 16 的支援狀態需在實作時另行查證確認。

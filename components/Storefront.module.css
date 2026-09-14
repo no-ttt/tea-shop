@@ -13,11 +13,11 @@
 
 .h1 {
   text-align: center;
-  font-size: 26px;
+  font-size: calc(26px * var(--scale-title, 1));
   letter-spacing: 6px;
   margin: 6px 0 2px;
   font-weight: 600;
-  color: var(--cream);
+  color: var(--color-title, var(--cream));
 }
 
 .subtitle {
@@ -85,7 +85,7 @@
 
 @media (max-width: 480px) {
   .h1 {
-    font-size: 21px;
+    font-size: calc(21px * var(--scale-title, 1));
     letter-spacing: 4px;
   }
   .card {

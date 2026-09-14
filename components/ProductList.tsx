@@ -7,6 +7,7 @@ export default function ProductList({
   currentRegion,
   statuses,
   selectedWeights,
+  weightOptions,
   onSelectWeight,
   onAddToCart,
   onOpenLightbox,
@@ -15,6 +16,7 @@ export default function ProductList({
   currentRegion: string;
   statuses: ProductStatus[];
   selectedWeights: Record<string, number>;
+  weightOptions: number[];
   onSelectWeight: (productId: string, weight: number) => void;
   onAddToCart: (productId: string) => void;
   onOpenLightbox: (src: string) => void;
@@ -37,6 +39,7 @@ export default function ProductList({
             product={product}
             status={status}
             selectedWeight={selectedWeights[product.id] ?? null}
+            weightOptions={weightOptions}
             onSelectWeight={onSelectWeight}
             onAddToCart={onAddToCart}
             onOpenLightbox={onOpenLightbox}

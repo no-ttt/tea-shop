@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import type {
   Region,
   Product,
@@ -12,7 +11,7 @@ import type {
   OrderConfirmation,
   OrderPayload,
 } from "@/lib/types";
-import { LOGO_IMAGE } from "@/lib/mock-data";
+import type { SiteSettings } from "@/lib/data";
 import { calcOrderTotals } from "@/lib/pricing";
 import type { PolicyKey } from "@/lib/policy-content";
 import BackToTop from "./BackToTop";
@@ -35,12 +34,14 @@ export default function Storefront({
   statuses,
   customerFields,
   bundleDiscounts,
+  siteSettings,
 }: {
   regions: Region[];
   products: Product[];
   statuses: ProductStatus[];
   customerFields: CustomerField[];
   bundleDiscounts: BundleDiscount[];
+  siteSettings: SiteSettings;
 }) {
   const [currentRegionId, setCurrentRegionId] = useState(regions[0]?.id ?? "");
   const [selectedWeights, setSelectedWeights] = useState<Record<string, number>>({});
@@ -55,7 +56,17 @@ export default function Storefront({
   const [orderExtra, setOrderExtra] = useState<CheckoutSubmitExtra | null>(null);
 
   const currentRegion = regions.find((r) => r.id === currentRegionId) ?? regions[0];
-  const totals = useMemo(() => calcOrderTotals(cart, bundleDiscounts), [cart, bundleDiscounts]);
+  const regionTitleMap = useMemo(() => new Map(regions.map((r) => [r.id, r.title])), [regions]);
+  const totals = useMemo(
+    () =>
+      calcOrderTotals(
+        cart,
+        bundleDiscounts,
+        siteSettings.shipping.freeThreshold,
+        siteSettings.shipping.fee,
+      ),
+    [cart, bundleDiscounts, siteSettings.shipping.freeThreshold, siteSettings.shipping.fee],
+  );
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const anyOverlayOpen =
@@ -89,7 +100,7 @@ export default function Storefront({
       key: `${productId}-${weight}-${Date.now()}`,
       productId,
       name: product.name.replace(/\n/g, " "),
-      detail: `${product.region}／${weight}g`,
+      detail: `${regionTitleMap.get(product.region) ?? product.region}／${weight}g`,
       price,
     };
     setCart((prev) => [...prev, line]);
@@ -115,8 +126,13 @@ export default function Storefront({
     });
 
     if (!res.ok) {
-      const body = (await res.json()) as { error: string };
-      return { ok: false, error: body.error };
+      try {
+        const body = (await res.json()) as { error: string };
+        return { ok: false, error: body.error };
+      } catch {
+        // 伺服器回傳非 JSON 內容（例如上游 502），無法解析錯誤細節，退回通用訊息。
+        return { ok: false, error: "訂單建立失敗，請稍後再試" };
+      }
     }
 
     const confirmation = (await res.json()) as OrderConfirmation;
@@ -134,7 +150,10 @@ export default function Storefront({
       <RegionBackground region={currentRegion} />
 
       <div className={styles.brand}>
-        <Image src={LOGO_IMAGE} alt="棋願製造" width={120} height={120} />
+        {/* 使用者可透過後台輸入任意外部圖片網址（不限定網域），故用原生 img 跳過
+            Next.js Image Optimizer 的網域白名單限制，避免未知網域直接讓頁面崩潰。 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={siteSettings.branding.logoImage} alt="棋願製造" width={120} height={120} />
       </div>
 
       <h1 className={styles.h1}>{currentRegion.title}</h1>
@@ -155,6 +174,7 @@ export default function Storefront({
             currentRegion={currentRegionId}
             statuses={statuses}
             selectedWeights={selectedWeights}
+            weightOptions={siteSettings.weightOptions}
             onSelectWeight={handleSelectWeight}
             onAddToCart={handleAddToCart}
             onOpenLightbox={setLightboxSrc}
@@ -165,6 +185,8 @@ export default function Storefront({
           <Cart
             cart={cart}
             totals={totals}
+            freeShippingThreshold={siteSettings.shipping.freeThreshold}
+            shippingFee={siteSettings.shipping.fee}
             onRemove={handleRemoveFromCart}
             onClear={handleClearCart}
             onCheckout={() => {
@@ -188,6 +210,7 @@ export default function Storefront({
         cart={cart}
         totals={totals}
         customerFields={customerFields}
+        linePayQrImage={siteSettings.branding.linePayQrImage}
         onClose={() => setCheckoutOpen(false)}
         onSubmit={handleSubmitOrder}
       />

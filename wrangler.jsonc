@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qiwish-nextjs",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "qiwish-db",
+      "database_id": "ec87d8d4-b80d-4ea7-b4e0-ac23904e3d3d",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ]
+}

@@ -1,5 +1,4 @@
 import type { CartLine, OrderTotals } from "@/lib/types";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/mock-data";
 import styles from "./Cart.module.css";
 
 function fmt(n: number): string {
@@ -9,19 +8,23 @@ function fmt(n: number): string {
 export default function Cart({
   cart,
   totals,
+  freeShippingThreshold,
+  shippingFee,
   onRemove,
   onClear,
   onCheckout,
 }: {
   cart: CartLine[];
   totals: OrderTotals;
+  freeShippingThreshold: number;
+  shippingFee: number;
   onRemove: (key: string) => void;
   onClear: () => void;
   onCheckout: () => void;
 }) {
   // 購物車顯示的「總計」只計小計－組合折扣，不含運費；運費只在文案與結帳時計算（照抄原網站 renderCart() 邏輯）
   const totalBeforeShipping = Math.max(0, totals.subtotal - totals.bundleDiscountAmount);
-  const remaining = FREE_SHIPPING_THRESHOLD - totalBeforeShipping;
+  const remaining = freeShippingThreshold - totalBeforeShipping;
 
   return (
     <div className="card">
@@ -81,7 +84,7 @@ export default function Cart({
         >
           {totals.qualifiesForFreeShipping ? (
             <>
-              🎉 已滿 {fmt(FREE_SHIPPING_THRESHOLD)} 元，享免運服務（省下 {fmt(SHIPPING_FEE)} 元運費），並可加入會員專屬群組享各種福利！
+              🎉 已滿 {fmt(freeShippingThreshold)} 元，享免運服務（省下 {fmt(shippingFee)} 元運費），並可加入會員專屬群組享各種福利！
             </>
           ) : (
             <>

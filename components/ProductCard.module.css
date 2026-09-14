@@ -19,9 +19,9 @@
 
 .name {
   font-weight: 700;
-  font-size: 15.5px;
+  font-size: calc(15.5px * var(--scale-item, 1));
   line-height: 1.4;
-  color: var(--cream);
+  color: var(--color-item, var(--cream));
   white-space: pre-line;
 }
 
@@ -127,8 +127,8 @@
 }
 
 .preview b {
-  color: var(--cream);
-  font-size: 14.5px;
+  color: var(--color-price, var(--cream));
+  font-size: calc(14.5px * var(--scale-price, 1));
 }
 
 .addBtn {
@@ -159,6 +159,6 @@
     padding: 7px 10px;
   }
   .name {
-    font-size: 14.5px;
+    font-size: calc(14.5px * var(--scale-item, 1));
   }
 }
