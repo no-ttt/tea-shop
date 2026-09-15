@@ -1,7 +1,8 @@
-import { getCustomerFields, getSiteSettings } from "@/lib/data";
+import { getSiteSettings } from "@/lib/data";
+import { getAllCustomerFields } from "@/lib/admin-data";
 import CustomerFieldsAdminList from "@/components/admin/CustomerFieldsAdminList";
 
 export default async function AdminCustomerFieldsPage() {
-  const [fields, settings] = await Promise.all([getCustomerFields(), getSiteSettings()]);
+  const [fields, settings] = await Promise.all([getAllCustomerFields(), getSiteSettings()]);
   return <CustomerFieldsAdminList fields={fields} freeShippingThreshold={settings.shipping.freeThreshold} />;
 }

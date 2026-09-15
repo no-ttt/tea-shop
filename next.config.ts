@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Cloudflare Workers 沒有設定 IMAGES binding（需另外開通 Cloudflare Images 服務），
+  // next/image 的伺服器端最佳化會退回原圖並在 log 印警告。所有圖片來源本來就是外部
+  // 網址或 public 靜態檔案，關掉最佳化不影響顯示，只是不會自動壓縮/轉格式。
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;

@@ -93,8 +93,7 @@
   margin-bottom: 6px;
 }
 
-.formField input:not([type="checkbox"]):not([type="radio"]),
-.formField select {
+.formField input:not([type="checkbox"]):not([type="radio"]) {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;

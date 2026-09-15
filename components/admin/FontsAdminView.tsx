@@ -1,22 +1,46 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import type { SiteSettings } from "@/lib/data";
+import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
 
+const DEFAULT_SCALE = 1;
 const DEFAULT_COLOR_TITLE = "#f3ede1";
 const DEFAULT_COLOR_ITEM = "#f3ede1";
 const DEFAULT_COLOR_PRICE = "#c98a4b";
 const DEFAULT_COLOR_COMINGSOON = "#c9bfa8";
 
-export default function FontsAdminView() {
-  const [scaleTitle, setScaleTitle] = useState(1);
-  const [scaleItem, setScaleItem] = useState(1);
-  const [scalePrice, setScalePrice] = useState(1);
+export default function FontsAdminView({
+  theme,
+  comingSoonColor,
+  comingSoonStatusId,
+}: {
+  theme: SiteSettings["theme"];
+  comingSoonColor: string;
+  comingSoonStatusId: string | null;
+}) {
+  const router = useRouter();
 
-  const [colorTitle, setColorTitle] = useState(DEFAULT_COLOR_TITLE);
-  const [colorItem, setColorItem] = useState(DEFAULT_COLOR_ITEM);
-  const [colorPrice, setColorPrice] = useState(DEFAULT_COLOR_PRICE);
-  const [colorComingsoon, setColorComingsoon] = useState(DEFAULT_COLOR_COMINGSOON);
+  const [scaleTitle, setScaleTitle] = useState(theme.scaleTitle);
+  const [scaleItem, setScaleItem] = useState(theme.scaleItem);
+  const [scalePrice, setScalePrice] = useState(theme.scalePrice);
+
+  const [colorTitle, setColorTitle] = useState(theme.colorTitle);
+  const [colorItem, setColorItem] = useState(theme.colorItem);
+  const [colorPrice, setColorPrice] = useState(theme.colorPrice);
+  const [colorComingsoon, setColorComingsoon] = useState(comingSoonColor);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const resetScales = () => {
+    setScaleTitle(DEFAULT_SCALE);
+    setScaleItem(DEFAULT_SCALE);
+    setScalePrice(DEFAULT_SCALE);
+  };
 
   const resetColors = () => {
     setColorTitle(DEFAULT_COLOR_TITLE);
@@ -25,9 +49,59 @@ export default function FontsAdminView() {
     setColorComingsoon(DEFAULT_COLOR_COMINGSOON);
   };
 
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const settingsRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          "theme.scaleTitle": scaleTitle,
+          "theme.scaleItem": scaleItem,
+          "theme.scalePrice": scalePrice,
+          "theme.colorTitle": colorTitle,
+          "theme.colorItem": colorItem,
+          "theme.colorPrice": colorPrice,
+        }),
+      });
+      if (!settingsRes.ok) {
+        setError(await parseErrorMessage(settingsRes, "儲存失敗"));
+        setSaving(false);
+        return;
+      }
+
+      if (comingSoonStatusId) {
+        const statusRes = await fetch(`/api/admin/statuses/${comingSoonStatusId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color: colorComingsoon }),
+        });
+        if (!statusRes.ok) {
+          setError(await parseErrorMessage(statusRes, "儲存失敗"));
+          setSaving(false);
+          return;
+        }
+      }
+
+      setSaving(false);
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError("儲存失敗，請確認網路連線");
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
-      <h1 className={styles.pageTitle}>文字大小</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1 className={styles.pageTitle}>文字大小</h1>
+        <button type="button" className={styles.button} onClick={handleSave} disabled={saving}>
+          {saving ? "儲存中…" : "儲存變更"}
+        </button>
+      </div>
 
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>文字大小調整</h3>
@@ -70,6 +144,10 @@ export default function FontsAdminView() {
           />
           <span className={styles.sliderVal}>{scalePrice.toFixed(2).replace(/\.?0+$/, "")}x</span>
         </div>
+
+        <button type="button" className={styles.buttonSecondary} onClick={resetScales}>
+          還原成預設大小
+        </button>
       </div>
 
       <div className={styles.section}>
@@ -115,9 +193,6 @@ export default function FontsAdminView() {
         <button type="button" className={styles.buttonSecondary} onClick={resetColors}>
           還原成預設顏色
         </button>
-        <p className={styles.helpText}>
-          目前為預覽功能，尚未串接實際套用與儲存，關閉頁面後調整內容不會保留。
-        </p>
       </div>
 
       <div className={styles.section}>
@@ -145,6 +220,17 @@ export default function FontsAdminView() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <p className={styles.helpText} style={{ color: "#c0392b" }}>
+          {error}
+        </p>
+      )}
+      {saved && !error && (
+        <p className={styles.helpText} style={{ color: "#2e7d32" }}>
+          已儲存
+        </p>
+      )}
     </div>
   );
 }

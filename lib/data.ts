@@ -91,6 +91,11 @@ export async function getProductStatuses(): Promise<ProductStatus[]> {
   }));
 }
 
+/**
+ * 依賴 customer_fields.active 欄位（migration 0002_fuzzy_hercules.sql 才新增，0000/0001 沒有）。
+ * 資料庫若只套用到較早的 migration，這個查詢會直接報 SQLITE_ERROR：no such column。
+ * 部署/重建資料庫時務必確保全部 migration 都套用完整，不能只套一部分。
+ */
 export async function getCustomerFields(): Promise<CustomerField[]> {
   const db = getDb();
   const rows = await db
@@ -259,6 +264,13 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     if (field.id === "lineId") {
       if (qualifiesForGroup && !payload.customer.lineId) {
         throw new OrderValidationError(`請填寫${field.label}`, "cf_lineId");
+      }
+      continue;
+    }
+
+    if (field.id === "birthday") {
+      if (field.required && !payload.birthday) {
+        throw new OrderValidationError(`請填寫${field.label}`, "cf_birthday");
       }
       continue;
     }

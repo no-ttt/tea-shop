@@ -31,7 +31,7 @@ export interface Product {
 export interface CustomerField {
   id: string;
   label: string;
-  type: "text" | "tel" | "email";
+  type: "text" | "tel" | "email" | "date";
   required: boolean;
   builtin: boolean;
 }

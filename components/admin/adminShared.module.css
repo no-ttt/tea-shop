@@ -43,42 +43,6 @@
   min-height: 60px;
 }
 
-.select {
-  appearance: none;
-  padding: 9px 34px 9px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background-color: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: var(--cream);
-  font-size: 13px;
-  font-family: inherit;
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 12px 8px;
-  cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23c98a4b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-}
-
-.select:hover {
-  border-color: rgba(201, 138, 75, 0.55);
-  background-color: rgba(255, 255, 255, 0.22);
-}
-
-.select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(201, 138, 75, 0.18);
-}
-
-.select option {
-  color: #241c14;
-  background: #f3ede1;
-  padding: 6px;
-}
-
 .button {
   background: var(--accent);
   color: #2b1c0f;
@@ -104,6 +68,16 @@
   background: none;
   border: 1px solid var(--danger);
   color: var(--danger);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.buttonSuccess {
+  background: none;
+  border: 1px solid var(--success);
+  color: var(--success);
   border-radius: 6px;
   padding: 8px 16px;
   font-size: 12.5px;
@@ -341,6 +315,28 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   padding: 6px;
   display: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 28, 15, 0.35) transparent;
+}
+
+.multiSelectPanel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.multiSelectPanel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.multiSelectPanel::-webkit-scrollbar-thumb {
+  background-color: rgba(43, 28, 15, 0.3);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.multiSelectPanel::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(43, 28, 15, 0.5);
+  background-clip: padding-box;
 }
 
 .multiSelectWrapOpen .multiSelectPanel {
@@ -564,17 +560,4 @@
 
 .storageFill.danger {
   background: var(--danger);
-}
-
-.textareaCode {
-  width: 100%;
-  height: 220px;
-  font-family: monospace;
-  font-size: 11px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--cream);
-  resize: vertical;
 }

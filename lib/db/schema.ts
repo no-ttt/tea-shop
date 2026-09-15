@@ -51,7 +51,7 @@ export const productImages = sqliteTable(
 export const customerFields = sqliteTable("customer_fields", {
   id: text("id").primaryKey(),
   label: text("label").notNull(),
-  type: text("type", { enum: ["text", "tel", "email"] }).notNull(),
+  type: text("type", { enum: ["text", "tel", "email", "date"] }).notNull(),
   required: integer("required", { mode: "boolean" }).notNull(),
   builtin: integer("builtin", { mode: "boolean" }).notNull(),
   sortOrder: integer("sort_order").notNull().default(0),

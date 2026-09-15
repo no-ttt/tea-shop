@@ -3,6 +3,7 @@ import type { CartLine, CustomerField, OrderTotals, OrderPayload, OrderConfirmat
 import BankTransferModal from "./BankTransferModal";
 import LinePayQrModal from "./LinePayQrModal";
 import LinePayConfirmModal from "./LinePayConfirmModal";
+import CustomSelect from "./CustomSelect";
 import shared from "./checkoutShared.module.css";
 
 function fmt(n: number): string {
@@ -76,7 +77,13 @@ export default function CheckoutOverlay({
   if (!open) return null;
 
   const qualifiesForGroup = totals.qualifiesForFreeShipping;
+  const nameField = customerFields.find((f) => f.id === "name");
+  const phoneField = customerFields.find((f) => f.id === "phone");
   const lineIdField = customerFields.find((f) => f.id === "lineId");
+  const emailField = customerFields.find((f) => f.id === "email");
+  const birthdayField = customerFields.find((f) => f.id === "birthday");
+  const zipField = customerFields.find((f) => f.id === "zip");
+  const addressField = customerFields.find((f) => f.id === "address");
   const customFields = customerFields.filter((f) => !f.builtin);
 
   const handlePaymentSelect = (method: PaymentMethod) => {
@@ -163,13 +170,13 @@ export default function CheckoutOverlay({
           <div className={shared.sectionTitle}>會員資訊</div>
           <div className={shared.formField}>
             <label>
-              姓名 <span className={shared.requiredMark}>*</span>
+              {nameField?.label ?? "姓名"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className={shared.formField}>
             <label>
-              電話 <span className={shared.requiredMark}>*</span>
+              {phoneField?.label ?? "電話"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
@@ -183,7 +190,7 @@ export default function CheckoutOverlay({
           )}
           <div className={shared.formField}>
             <label>
-              電子郵件 <span className={shared.requiredMark}>*</span>
+              {emailField?.label ?? "電子郵件"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
@@ -201,35 +208,48 @@ export default function CheckoutOverlay({
               />
             </div>
           ))}
-          <div className={shared.formField}>
-            <label>生日（選填）</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <select value={birthYear} onChange={(e) => setBirthYear(e.target.value)}>
-                <option value="">年</option>
-                {Array.from({ length: 80 }, (_, i) => 2010 - i).map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-              <select value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)}>
-                <option value="">月</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-              <select value={birthDay} onChange={(e) => setBirthDay(e.target.value)}>
-                <option value="">日</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+          {birthdayField && (
+            <div className={shared.formField}>
+              <label>
+                {birthdayField.label} {birthdayField.required && <span className={shared.requiredMark}>*</span>}
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <CustomSelect
+                  value={birthYear}
+                  onChange={setBirthYear}
+                  options={[
+                    { value: "", label: "年" },
+                    ...Array.from({ length: 80 }, (_, i) => 2010 - i).map((y) => ({
+                      value: String(y),
+                      label: String(y),
+                    })),
+                  ]}
+                />
+                <CustomSelect
+                  value={birthMonth}
+                  onChange={setBirthMonth}
+                  options={[
+                    { value: "", label: "月" },
+                    ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+                      value: String(m),
+                      label: String(m),
+                    })),
+                  ]}
+                />
+                <CustomSelect
+                  value={birthDay}
+                  onChange={setBirthDay}
+                  options={[
+                    { value: "", label: "日" },
+                    ...Array.from({ length: 31 }, (_, i) => i + 1).map((d) => ({
+                      value: String(d),
+                      label: String(d),
+                    })),
+                  ]}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className={shared.sectionTitle}>收件資訊</div>
           <div className={shared.formField}>
@@ -274,16 +294,22 @@ export default function CheckoutOverlay({
 
           {shippingMethod === "mail" ? (
             <>
-              <div className={shared.formField}>
-                <label>郵遞區號（選填）</label>
-                <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} />
-              </div>
-              <div className={shared.formField}>
-                <label>
-                  地址 <span className={shared.requiredMark}>*</span>
-                </label>
-                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
-              </div>
+              {zipField && (
+                <div className={shared.formField}>
+                  <label>
+                    {zipField.label} {zipField.required && <span className={shared.requiredMark}>*</span>}
+                  </label>
+                  <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} />
+                </div>
+              )}
+              {addressField && (
+                <div className={shared.formField}>
+                  <label>
+                    {addressField.label} {addressField.required && <span className={shared.requiredMark}>*</span>}
+                  </label>
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -291,13 +317,11 @@ export default function CheckoutOverlay({
                 <label>
                   超商類型 <span className={shared.requiredMark}>*</span>
                 </label>
-                <select value={cvsType} onChange={(e) => setCvsType(e.target.value)}>
-                  {CVS_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={cvsType}
+                  onChange={setCvsType}
+                  options={CVS_TYPES.map((t) => ({ value: t, label: t }))}
+                />
               </div>
               <div className={shared.formField}>
                 <label>

@@ -108,11 +108,23 @@ export default function Storefront({
   };
 
   const handleRemoveFromCart = (key: string) => {
-    setCart((prev) => prev.filter((l) => l.key !== key));
+    setCart((prev) => {
+      const removed = prev.find((l) => l.key === key);
+      const next = prev.filter((l) => l.key !== key);
+      if (removed && !next.some((l) => l.productId === removed.productId)) {
+        setSelectedWeights((weights) => {
+          const rest = { ...weights };
+          delete rest[removed.productId];
+          return rest;
+        });
+      }
+      return next;
+    });
   };
 
   const handleClearCart = () => {
     setCart([]);
+    setSelectedWeights({});
   };
 
   const handleSubmitOrder = async (
@@ -140,6 +152,7 @@ export default function Storefront({
     setOrderExtra(extra);
     setCheckoutOpen(false);
     setCart([]);
+    setSelectedWeights({});
     return { ok: true, confirmation };
   };
 

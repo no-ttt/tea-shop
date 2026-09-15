@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { BundleDiscount, Product } from "@/lib/types";
 import ConfirmDialog from "./ConfirmDialog";
+import CustomSelect from "../CustomSelect";
+import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
+
+const NEW_BUNDLE_PREFIX = "new_";
 
 export default function BundleDiscountAdminList({
   bundles: initialBundles,
@@ -12,9 +17,12 @@ export default function BundleDiscountAdminList({
   bundles: BundleDiscount[];
   products: Product[];
 }) {
+  const router = useRouter();
   const [bundles, setBundles] = useState(initialBundles);
   const [openPickerIdx, setOpenPickerIdx] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (openPickerIdx === null) return;
@@ -30,7 +38,7 @@ export default function BundleDiscountAdminList({
     setBundles((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: `${NEW_BUNDLE_PREFIX}${crypto.randomUUID()}`,
         name: "新組合折扣",
         productIds: [],
         discountType: "percent",
@@ -44,6 +52,32 @@ export default function BundleDiscountAdminList({
   };
 
   const deletingBundle = deletingId !== null ? bundles.find((b) => b.id === deletingId) ?? null : null;
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    if (deletingId.startsWith(NEW_BUNDLE_PREFIX)) {
+      setBundles((prev) => prev.filter((b) => b.id !== deletingId));
+      setDeletingId(null);
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/bundle-discounts/${deletingId}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteError(await parseErrorMessage(res, "刪除失敗"));
+        setDeleting(false);
+        return;
+      }
+      setBundles((prev) => prev.filter((b) => b.id !== deletingId));
+      setDeletingId(null);
+      setDeleting(false);
+      router.refresh();
+    } catch {
+      setDeleteError("刪除失敗，請確認網路連線");
+      setDeleting(false);
+    }
+  };
 
   return (
     <div>
@@ -61,31 +95,42 @@ export default function BundleDiscountAdminList({
           <BundleRow
             key={bundle.id}
             bundle={bundle}
+            isNew={bundle.id.startsWith(NEW_BUNDLE_PREFIX)}
             products={products}
             isPickerOpen={openPickerIdx === bundle.id}
             onTogglePicker={() =>
               setOpenPickerIdx((cur) => (cur === bundle.id ? null : bundle.id))
             }
             onChange={(patch) => updateBundle(bundle.id, patch)}
-            onDelete={() => setDeletingId(bundle.id)}
+            onDelete={() => {
+              setDeleteError(null);
+              setDeletingId(bundle.id);
+            }}
+            onSaved={(saved) => {
+              updateBundle(bundle.id, saved);
+              if (bundle.id !== saved.id) {
+                setBundles((prev) => prev.map((b) => (b.id === bundle.id ? { ...b, ...saved } : b)));
+              }
+              router.refresh();
+            }}
           />
         ))}
-
-        <button type="button" className={styles.button} onClick={addBundle}>
-          ＋ 新增組合折扣
-        </button>
       </div>
+
+      <button type="button" className={styles.button} onClick={addBundle}>
+        ＋ 新增組合折扣
+      </button>
 
       {deletingBundle && (
         <ConfirmDialog
-          message={`確定要刪除「${deletingBundle.name}」這組折扣嗎？`}
-          confirmLabel="刪除"
+          message={deleteError ? deleteError : `確定要刪除「${deletingBundle.name}」這組折扣嗎？`}
+          confirmLabel={deleting ? "刪除中…" : "刪除"}
           danger
-          onConfirm={() => {
-            setBundles((prev) => prev.filter((b) => b.id !== deletingId));
+          onConfirm={handleDelete}
+          onCancel={() => {
             setDeletingId(null);
+            setDeleteError(null);
           }}
-          onCancel={() => setDeletingId(null)}
         />
       )}
     </div>
@@ -94,19 +139,26 @@ export default function BundleDiscountAdminList({
 
 function BundleRow({
   bundle,
+  isNew,
   products,
   isPickerOpen,
   onTogglePicker,
   onChange,
   onDelete,
+  onSaved,
 }: {
   bundle: BundleDiscount;
+  isNew: boolean;
   products: Product[];
   isPickerOpen: boolean;
   onTogglePicker: () => void;
   onChange: (patch: Partial<BundleDiscount>) => void;
   onDelete: () => void;
+  onSaved: (saved: BundleDiscount) => void;
 }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const toggle = (id: string) => {
     const next = new Set(bundle.productIds);
     if (next.has(id)) next.delete(id);
@@ -120,6 +172,46 @@ function BundleRow({
     .map((p) => p.name.replace(/\n/g, " "))
     .join("、");
   const btnLabel = selected.size > 0 ? `已選 ${selected.size} 項` : "點選以選擇品項";
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = isNew
+        ? await fetch("/api/admin/bundle-discounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: bundle.name,
+              productIds: bundle.productIds,
+              discountType: bundle.discountType,
+              discountValue: bundle.discountValue,
+            }),
+          })
+        : await fetch(`/api/admin/bundle-discounts/${bundle.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: bundle.name,
+              productIds: bundle.productIds,
+              discountType: bundle.discountType,
+              discountValue: bundle.discountValue,
+            }),
+          });
+
+      if (!res.ok) {
+        setError(await parseErrorMessage(res, "儲存失敗"));
+        setSaving(false);
+        return;
+      }
+      const saved = (await res.json()) as BundleDiscount;
+      setSaving(false);
+      onSaved(saved);
+    } catch {
+      setError("儲存失敗，請確認網路連線");
+      setSaving(false);
+    }
+  };
 
   return (
     <div className={styles.cardNoBorder}>
@@ -155,14 +247,14 @@ function BundleRow({
 
       <div className={styles.field}>
         <label>折扣方式</label>
-        <select
-          className={styles.select}
+        <CustomSelect
           value={bundle.discountType}
-          onChange={(e) => onChange({ discountType: e.target.value as "amount" | "percent" })}
-        >
-          <option value="amount">折扣固定金額</option>
-          <option value="percent">折扣百分比</option>
-        </select>
+          onChange={(v) => onChange({ discountType: v as "amount" | "percent" })}
+          options={[
+            { value: "amount", label: "折扣固定金額" },
+            { value: "percent", label: "折扣百分比" },
+          ]}
+        />
       </div>
 
       <div className={styles.field}>
@@ -176,9 +268,20 @@ function BundleRow({
         />
       </div>
 
-      <button type="button" className={styles.buttonDanger} onClick={onDelete}>
-        刪除這組折扣
-      </button>
+      {error && (
+        <p className={styles.helpText} style={{ color: "#c0392b" }}>
+          {error}
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="button" className={styles.button} onClick={handleSave} disabled={saving}>
+          {saving ? "儲存中…" : isNew ? "新增這組折扣" : "儲存變更"}
+        </button>
+        <button type="button" className={styles.buttonDanger} onClick={onDelete}>
+          刪除這組折扣
+        </button>
+      </div>
     </div>
   );
 }
