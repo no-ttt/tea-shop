@@ -43,6 +43,31 @@
   min-height: 60px;
 }
 
+.select {
+  padding: 8px 28px 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--cream);
+  font-size: 13px;
+  font-family: inherit;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c9bfa8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select option {
+  background: #2b2117;
+  color: var(--cream);
+}
+
 .button {
   background: var(--accent);
   color: #2b1c0f;
@@ -371,6 +396,21 @@
 
 .bgPreview img {
   object-fit: cover;
+}
+
+.squarePreview {
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #fff;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.squarePreview img {
+  object-fit: contain;
 }
 
 .bgPreviewLabel {

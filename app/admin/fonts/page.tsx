@@ -1,4 +1,4 @@
-import { getSiteSettings, getProductStatuses } from "@/lib/data";
+import { getSiteSettings, getProductStatuses } from "@/lib/admin-data";
 import FontsAdminView from "@/components/admin/FontsAdminView";
 
 export default async function AdminFontsPage() {

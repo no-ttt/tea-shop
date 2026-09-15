@@ -1,5 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc, inArray, count } from "drizzle-orm";
 import { getDb } from "./db/client";
+import { getSiteSettings, getRegions, getProducts, getProductStatuses, getBundleDiscounts } from "./data";
 import {
   regions as regionsTable,
   products as productsTable,
@@ -9,9 +10,17 @@ import {
   bundleDiscounts as bundleDiscountsTable,
   bundleDiscountProducts as bundleDiscountProductsTable,
   siteSettings as siteSettingsTable,
+  orders as ordersTable,
+  orderItems as orderItemsTable,
+  orderFailureLogs as orderFailureLogsTable,
 } from "./db/schema";
-import type { Region, Product, ProductStatus, CustomerField, BundleDiscount } from "./types";
+import { ORDER_STATUSES } from "./types";
+import type { Region, Product, ProductStatus, CustomerField, BundleDiscount, CartLine, OrderStatus } from "./types";
 import type { SiteSettings } from "./data";
+
+// 純讀取、前後台資料本來就該一致，刻意 re-export（分工說明見 CLAUDE.md）。
+export { getSiteSettings, getRegions, getProducts, getProductStatuses, getBundleDiscounts };
+export type { SiteSettings };
 
 export class AdminValidationError extends Error {}
 
@@ -724,6 +733,185 @@ export async function updateSiteSettings(patch: Record<string, unknown>): Promis
       .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value } });
   }
 
-  const { getSiteSettings } = await import("./data");
   return getSiteSettings();
+}
+
+// ---------- Orders ----------
+
+export interface AdminOrder {
+  id: string;
+  status: OrderStatus;
+  customerName: string;
+  customerPhone: string;
+  customerLineId: string | null;
+  customerEmail: string;
+  customerZip: string | null;
+  customerAddress: string | null;
+  birthday: string | null;
+  isGift: boolean;
+  giftName: string | null;
+  shippingMethod: "mail" | "cvs";
+  cvsType: string | null;
+  cvsStoreName: string | null;
+  paymentMethod: "bank" | "linepay";
+  bankTransferLast5: string | null;
+  linePayLast3: string | null;
+  subtotal: number;
+  bundleDiscountAmount: number;
+  bundleName: string | null;
+  shippingFee: number;
+  total: number;
+  createdAt: string;
+  items: CartLine[];
+}
+
+function mapOrderRowWithoutItems(row: typeof ordersTable.$inferSelect): Omit<AdminOrder, "items"> {
+  return {
+    id: row.id,
+    status: row.status,
+    customerName: row.customerName,
+    customerPhone: row.customerPhone,
+    customerLineId: row.customerLineId,
+    customerEmail: row.customerEmail,
+    customerZip: row.customerZip,
+    customerAddress: row.customerAddress,
+    birthday: row.birthday,
+    isGift: row.isGift,
+    giftName: row.giftName,
+    shippingMethod: row.shippingMethod,
+    cvsType: row.cvsType,
+    cvsStoreName: row.cvsStoreName,
+    paymentMethod: row.paymentMethod,
+    bankTransferLast5: row.bankTransferLast5,
+    linePayLast3: row.linePayLast3,
+    subtotal: row.subtotal,
+    bundleDiscountAmount: row.bundleDiscountAmount,
+    bundleName: row.bundleName,
+    shippingFee: row.shippingFee,
+    total: row.total,
+    createdAt: row.createdAt,
+  };
+}
+
+function mapOrderRow(row: typeof ordersTable.$inferSelect, items: CartLine[]): AdminOrder {
+  return {
+    ...mapOrderRowWithoutItems(row),
+    items,
+  };
+}
+
+const ORDERS_PAGE_SIZE = 50;
+
+export interface ListOrdersParams {
+  page?: number;
+  status?: OrderStatus;
+}
+
+export interface ListOrdersResult {
+  orders: AdminOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listOrders(params: ListOrdersParams = {}): Promise<ListOrdersResult> {
+  const db = getDb();
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = ORDERS_PAGE_SIZE;
+  const where = params.status ? eq(ordersTable.status, params.status) : undefined;
+
+  const [{ total }] = await db.select({ total: count() }).from(ordersTable).where(where);
+
+  const orderRows = await db
+    .select()
+    .from(ordersTable)
+    .where(where)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+    .all();
+  if (orderRows.length === 0) return { orders: [], total, page, pageSize };
+
+  const orderIds = orderRows.map((o) => o.id);
+  const itemRows = await db.select().from(orderItemsTable).where(inArray(orderItemsTable.orderId, orderIds)).all();
+
+  const itemsByOrderId = new Map<string, CartLine[]>();
+  for (const item of itemRows) {
+    const line: CartLine = { key: item.cartKey, productId: item.productId, name: item.name, detail: item.detail, price: item.price };
+    const existing = itemsByOrderId.get(item.orderId);
+    if (existing) existing.push(line);
+    else itemsByOrderId.set(item.orderId, [line]);
+  }
+
+  return {
+    orders: orderRows.map((row) => mapOrderRow(row, itemsByOrderId.get(row.id) ?? [])),
+    total,
+    page,
+    pageSize,
+  };
+}
+
+export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Omit<AdminOrder, "items">> {
+  if (!ORDER_STATUSES.includes(status)) {
+    throw new AdminValidationError("訂單狀態格式錯誤");
+  }
+  const db = getDb();
+  const updated = await db.update(ordersTable).set({ status }).where(eq(ordersTable.id, id)).returning().get();
+  if (!updated) throw new AdminValidationError("找不到這筆訂單");
+
+  return mapOrderRowWithoutItems(updated);
+}
+
+// ---------- Order failure logs ----------
+
+export interface AdminOrderFailure {
+  id: number;
+  occurredAt: string;
+  orderIdAttempt: string | null;
+  errorMessage: string;
+  errorStack: string | null;
+  payloadSnapshot: string;
+}
+
+const ORDER_FAILURES_PAGE_SIZE = 50;
+
+export interface ListOrderFailuresParams {
+  page?: number;
+}
+
+export interface ListOrderFailuresResult {
+  failures: AdminOrderFailure[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listOrderFailures(params: ListOrderFailuresParams = {}): Promise<ListOrderFailuresResult> {
+  const db = getDb();
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = ORDER_FAILURES_PAGE_SIZE;
+
+  const [{ total }] = await db.select({ total: count() }).from(orderFailureLogsTable);
+
+  const rows = await db
+    .select()
+    .from(orderFailureLogsTable)
+    .orderBy(desc(orderFailureLogsTable.occurredAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+    .all();
+
+  return {
+    failures: rows.map((row) => ({
+      id: row.id,
+      occurredAt: row.occurredAt,
+      orderIdAttempt: row.orderIdAttempt,
+      errorMessage: row.errorMessage,
+      errorStack: row.errorStack,
+      payloadSnapshot: row.payloadSnapshot,
+    })),
+    total,
+    page,
+    pageSize,
+  };
 }

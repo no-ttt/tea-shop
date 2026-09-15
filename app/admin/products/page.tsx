@@ -1,4 +1,4 @@
-import { getProducts, getRegions, getProductStatuses } from "@/lib/data";
+import { getProducts, getRegions, getProductStatuses } from "@/lib/admin-data";
 import ProductAdminList from "@/components/admin/ProductAdminList";
 
 export default async function AdminProductsPage() {

@@ -88,6 +88,7 @@ export interface OrderTotals {
 }
 
 export type OrderStatus = "pending_payment" | "paid" | "cancelled";
+export const ORDER_STATUSES: OrderStatus[] = ["pending_payment", "paid", "cancelled"];
 
 export interface OrderConfirmation extends OrderTotals {
   orderId: string;

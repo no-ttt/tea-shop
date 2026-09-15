@@ -1,4 +1,4 @@
-import { getBundleDiscounts, getProducts } from "@/lib/data";
+import { getBundleDiscounts, getProducts } from "@/lib/admin-data";
 import BundleDiscountAdminList from "@/components/admin/BundleDiscountAdminList";
 
 export default async function AdminBundleDiscountsPage() {

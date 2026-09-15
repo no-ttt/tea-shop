@@ -1,4 +1,4 @@
-import { getRegions } from "@/lib/data";
+import { getRegions } from "@/lib/admin-data";
 import RegionAdminList from "@/components/admin/RegionAdminList";
 
 export default async function AdminRegionsPage() {

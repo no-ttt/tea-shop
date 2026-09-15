@@ -15,5 +15,12 @@
       "database_id": "ec87d8d4-b80d-4ea7-b4e0-ac23904e3d3d",
       "migrations_dir": "drizzle/migrations"
     }
-  ]
+  ],
+  // RESEND_API_KEY／EMAIL_FROM 只在這裡宣告型別用的空字串預設值；
+  // 正式環境的實際值一律用 `wrangler secret put` 設定（會覆蓋這裡的 vars），
+  // 本地開發用 .dev.vars（已加進 .gitignore，不進版控）。
+  "vars": {
+    "RESEND_API_KEY": "",
+    "EMAIL_FROM": ""
+  }
 }

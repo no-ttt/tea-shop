@@ -1,66 +1,170 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import type { SiteSettings } from "@/lib/admin-data";
+import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
 
-export default function SettingsAdminView() {
+const SAVED_MESSAGE_TIMEOUT_MS = 3000;
+
+export default function SettingsAdminView({
+  shipping,
+  shopEmail,
+  linePayQrImage,
+}: {
+  shipping: SiteSettings["shipping"];
+  shopEmail: string;
+  linePayQrImage: string;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const [freeThreshold, setFreeThreshold] = useState(shipping.freeThreshold);
+  const [fee, setFee] = useState(shipping.fee);
+  const [notifyEmail, setNotifyEmail] = useState(shopEmail);
+  const [qrImage, setQrImage] = useState(linePayQrImage);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    };
+  }, []);
+
+  const clearSavedMessage = () => {
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current);
+      savedTimeoutRef.current = null;
+    }
+    setSaved(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    clearSavedMessage();
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          "shipping.freeThreshold": freeThreshold,
+          "shipping.fee": fee,
+          "notify.shopEmail": notifyEmail,
+          "branding.linePayQrImage": qrImage,
+        }),
+      });
+      if (!res.ok) {
+        setError(await parseErrorMessage(res, "儲存失敗"));
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+      setSaved(true);
+      savedTimeoutRef.current = setTimeout(() => setSaved(false), SAVED_MESSAGE_TIMEOUT_MS);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setError("儲存失敗，請確認網路連線");
+      setSaving(false);
+    }
+  };
 
   return (
     <div>
-      <h1 className={styles.pageTitle}>其他設定</h1>
-
-      <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>儲存空間使用量</h3>
-        <div className={styles.storageBar}>
-          <div className={styles.storageFill} style={{ width: "3%" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h1 className={styles.pageTitle} style={{ margin: 0 }}>其他設定</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {error && (
+            <span className={styles.helpText} style={{ color: "#c0392b" }}>
+              {error}
+            </span>
+          )}
+          {saved && !error && (
+            <span className={styles.helpText} style={{ color: "#2e7d32" }}>
+              已儲存
+            </span>
+          )}
+          <button type="button" className={styles.button} onClick={handleSave} disabled={saving || isPending}>
+            {saving ? "儲存中…" : "儲存變更"}
+          </button>
         </div>
-        <p className={styles.helpText}>目前約使用 0.15 MB（估計值，約佔瀏覽器容量上限的 3%）</p>
-        <p className={styles.helpText}>
-          這裡顯示的是網站設定資料（品項文字、價格等）的用量，通常不會滿。
-          商品圖片和底圖已經改存到瀏覽器另一個容量大很多的空間（IndexedDB），
-          一般不會遇到空間不足的問題；如果裝置本身硬碟空間就很吃緊，才可能碰到上限。
-        </p>
       </div>
 
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>訂單通知</h3>
+        <h3 className={styles.sectionTitle}>運費規則</h3>
         <div className={styles.field}>
-          <label>Formspree 表單網址（客人送出訂單時會把資料寄到你設定的信箱）</label>
-          <input className={styles.input} placeholder="https://formspree.io/f/xxxxxxx" />
+          <label>免運門檻</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.input}
+            value={freeThreshold}
+            onChange={(e) => {
+              setFreeThreshold(Number(e.target.value));
+              clearSavedMessage();
+            }}
+          />
         </div>
-        <button type="button" className={styles.button} disabled title="尚未串接後端，此功能即將推出">
-          儲存
-        </button>
-        <p className={styles.helpText}>
-          設定方式：
-          <br />
-          1. 到 https://formspree.io 免費註冊帳號
-          <br />
-          2. 建立一個新表單（New Form），填入你要收訂單通知的信箱
-          <br />
-          3. 複製它給你的表單網址（長得像 https://formspree.io/f/xxxxxxx）
-          <br />
-          4. 貼到上面欄位並按「儲存」，客人送出訂單後你的信箱就會收到通知信
-          <br />
-          <br />
-          想讓客人也自動收到一份訂貨單副本：
-          <br />
-          5. 到 Formspree 後台該表單的 Plugins（或 Workflow → Actions）分頁，加入 Autoresponse 功能
-          <br />
-          6. 自訂客人會收到的信件標題與內容（例如「已收到您的訂單」），存檔即可
-          <br />
-          7. 之後客人送出訂單，會自動收到一封來自 Formspree 的確認信到他填寫的電子郵件
-        </p>
+        <div className={styles.field}>
+          <label>運費（未達免運門檻時收取的運費）</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.input}
+            value={fee}
+            onChange={(e) => {
+              setFee(Number(e.target.value));
+              clearSavedMessage();
+            }}
+          />
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>訂單通知信箱</h3>
+        <div className={styles.field}>
+          <label>客人送出訂單後，通知信會寄到這個信箱</label>
+          <input
+            type="email"
+            className={styles.input}
+            placeholder="shop@example.com"
+            value={notifyEmail}
+            onChange={(e) => {
+              setNotifyEmail(e.target.value);
+              clearSavedMessage();
+            }}
+          />
+        </div>
+        <p className={styles.helpText}>留空則不會寄送訂單通知信。</p>
       </div>
 
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>LINE Pay 收款 QR Code</h3>
-        <p className={styles.helpText}>
-          客人結帳選擇「LINE Pay」時會顯示這張 QR Code，讓客人用 LINE App 掃碼付款給你。
-          之後如果要換一張新的收款碼（例如金額固定碼改成不限金額碼），可以在這裡重新上傳。
-        </p>
-        <input type="file" accept="image/*" className={styles.input} />
+        <div className={styles.squarePreview} style={{ marginBottom: 16 }}>
+          <Image src={qrImage} alt="目前使用中的 LINE Pay 收款 QR Code" fill sizes="140px" />
+        </div>
+        <div className={styles.field}>
+          <label>圖片網址</label>
+          <input
+            className={styles.input}
+            placeholder="https://... 或 /images/..."
+            value={qrImage}
+            onChange={(e) => {
+              setQrImage(e.target.value);
+              clearSavedMessage();
+            }}
+          />
+        </div>
       </div>
 
       <div className={styles.section}>
@@ -72,6 +176,7 @@ export default function SettingsAdminView() {
             placeholder="輸入新密碼"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+            disabled
           />
         </div>
         <button
@@ -79,23 +184,10 @@ export default function SettingsAdminView() {
           className={styles.button}
           disabled
           style={{ opacity: 0.5, cursor: "not-allowed" }}
-          title="尚未串接後端，此功能即將推出"
+          title="登入驗證機制尚未完成，此功能即將推出"
         >
           更新密碼
         </button>
-      </div>
-
-      <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>重置</h3>
-        <button
-          type="button"
-          className={styles.buttonDanger}
-          disabled
-          title="尚未串接後端，此功能即將推出"
-        >
-          還原成最初的預設內容
-        </button>
-        <p className={styles.helpText}>會清除所有在本機瀏覽器做過的修改，恢復成這個檔案原本內建的資料。</p>
       </div>
     </div>
   );

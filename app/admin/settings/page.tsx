@@ -1,5 +1,13 @@
+import { getSiteSettings } from "@/lib/admin-data";
 import SettingsAdminView from "@/components/admin/SettingsAdminView";
 
-export default function AdminSettingsPage() {
-  return <SettingsAdminView />;
+export default async function AdminSettingsPage() {
+  const settings = await getSiteSettings();
+  return (
+    <SettingsAdminView
+      shipping={settings.shipping}
+      shopEmail={settings.notify.shopEmail}
+      linePayQrImage={settings.branding.linePayQrImage}
+    />
+  );
 }

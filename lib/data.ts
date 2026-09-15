@@ -9,6 +9,10 @@ import {
   bundleDiscounts as bundleDiscountsTable,
   bundleDiscountProducts as bundleDiscountProductsTable,
   siteSettings as siteSettingsTable,
+  orders as ordersTable,
+  orderItems as orderItemsTable,
+  orderFieldValues as orderFieldValuesTable,
+  orderFailureLogs as orderFailureLogsTable,
 } from "./db/schema";
 import { calcOrderTotals } from "./pricing";
 import type {
@@ -238,11 +242,25 @@ export class OrderValidationError extends Error {
 
 /**
  * 驗證規則與錯誤訊息逐字比照原網站 submitOrder()。
- * 驗證通過後計算金額並產生模擬訂單確認（訂單持久化將在後續批次加入）。
+ * 驗證通過後計算金額、寫入資料庫（orders／order_items／order_field_values），
+ * 並以 fire-and-forget 方式觸發 email 通知。
  */
 export async function createOrder(payload: OrderPayload): Promise<OrderConfirmation> {
   if (payload.cart.length === 0) {
     throw new OrderValidationError("購物車是空的，請先選購商品");
+  }
+
+  for (const item of payload.cart) {
+    if (
+      typeof item.key !== "string" ||
+      typeof item.productId !== "string" ||
+      typeof item.name !== "string" ||
+      typeof item.detail !== "string" ||
+      typeof item.price !== "number" ||
+      !Number.isFinite(item.price)
+    ) {
+      throw new OrderValidationError("購物車資料格式錯誤");
+    }
   }
 
   const [customerFields, bundles, settings] = await Promise.all([
@@ -324,12 +342,84 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     throw new OrderValidationError("請先掃描 QR Code 完成付款，並確認付款狀態");
   }
 
-  const orderId = `QW${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+  const orderId = `QW${crypto.randomUUID()}`;
+  const db = getDb();
 
-  return {
+  const isCVS = payload.shippingMethod === "cvs";
+  const orderRow = {
+    id: orderId,
+    status: "pending_payment" as const,
+    customerName: payload.customer.name,
+    customerPhone: payload.customer.phone,
+    customerLineId: payload.customer.lineId ?? null,
+    customerEmail: payload.customer.email,
+    customerZip: isCVS ? null : (payload.customer.zip ?? null),
+    customerAddress: isCVS ? null : (payload.customer.address ?? null),
+    birthday: payload.birthday ?? null,
+    isGift: payload.isGift,
+    giftName: payload.giftName ?? null,
+    shippingMethod: payload.shippingMethod,
+    cvsType: payload.cvsType ?? null,
+    cvsStoreName: payload.cvsStoreName ?? null,
+    paymentMethod: payload.paymentMethod,
+    bankTransferLast5: payload.bankTransferLast5 ?? null,
+    linePayLast3: payload.linePayLast3 ?? null,
+    subtotal: totals.subtotal,
+    bundleDiscountAmount: totals.bundleDiscountAmount,
+    bundleName: totals.bundleName,
+    shippingFee: totals.shippingFee,
+    total: totals.total,
+  };
+
+  const itemRows = payload.cart.map((item) => ({
+    orderId,
+    productId: item.productId,
+    cartKey: item.key,
+    name: item.name,
+    detail: item.detail,
+    price: item.price,
+  }));
+
+  // 只存非內建（店家自訂）客戶欄位的填寫值；內建欄位（含 lineId/birthday）已經是 orders 表的固定欄位。
+  const fieldValueRows = customerFields
+    .filter((field) => !field.builtin && customFieldValues[field.id])
+    .map((field) => ({
+      orderId,
+      fieldId: field.id,
+      value: customFieldValues[field.id],
+    }));
+
+  try {
+    if (fieldValueRows.length > 0) {
+      await db.batch([
+        db.insert(ordersTable).values(orderRow),
+        db.insert(orderItemsTable).values(itemRows),
+        db.insert(orderFieldValuesTable).values(fieldValueRows),
+      ]);
+    } else {
+      await db.batch([db.insert(ordersTable).values(orderRow), db.insert(orderItemsTable).values(itemRows)]);
+    }
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    try {
+      await db.insert(orderFailureLogsTable).values({
+        orderIdAttempt: orderId,
+        errorMessage: error.message,
+        errorStack: error.stack ?? null,
+        payloadSnapshot: JSON.stringify(payload),
+      });
+    } catch (logErr) {
+      console.error("[order_failure_logs] 寫入失敗記錄本身也失敗", logErr);
+    }
+    throw error;
+  }
+
+  const confirmation: OrderConfirmation = {
     orderId,
     status: "pending_payment",
     cart: payload.cart,
     ...totals,
   };
+
+  return confirmation;
 }
