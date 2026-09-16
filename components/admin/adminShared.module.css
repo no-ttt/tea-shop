@@ -79,6 +79,11 @@
   cursor: pointer;
 }
 
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .buttonSecondary {
   background: none;
   border: 1px solid var(--line);

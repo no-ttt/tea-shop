@@ -32,6 +32,9 @@ export default function SettingsAdminView({
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [newPassword, setNewPassword] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSaved, setPwSaved] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -76,6 +79,30 @@ export default function SettingsAdminView({
     } catch {
       setError("儲存失敗，請確認網路連線");
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwSaving(true);
+    setPwError(null);
+    setPwSaved(false);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (!res.ok) {
+        setPwError(await parseErrorMessage(res, "更新失敗"));
+        setPwSaving(false);
+        return;
+      }
+      setNewPassword("");
+      setPwSaving(false);
+      setPwSaved(true);
+    } catch {
+      setPwError("更新失敗，請確認網路連線");
+      setPwSaving(false);
     }
   };
 
@@ -173,21 +200,33 @@ export default function SettingsAdminView({
           <input
             type="password"
             className={styles.input}
-            placeholder="輸入新密碼"
+            placeholder="輸入新密碼（至少 8 個字元）"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            disabled
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              setPwSaved(false);
+              setPwError(null);
+            }}
           />
         </div>
         <button
           type="button"
           className={styles.button}
-          disabled
-          style={{ opacity: 0.5, cursor: "not-allowed" }}
-          title="登入驗證機制尚未完成，此功能即將推出"
+          onClick={handleChangePassword}
+          disabled={pwSaving || newPassword.trim().length < 8}
         >
-          更新密碼
+          {pwSaving ? "更新中…" : "更新密碼"}
         </button>
+        {pwError && (
+          <p className={styles.helpText} style={{ color: "#c0392b" }}>
+            {pwError}
+          </p>
+        )}
+        {pwSaved && !pwError && (
+          <p className={styles.helpText} style={{ color: "#2e7d32" }}>
+            已更新
+          </p>
+        )}
       </div>
     </div>
   );
