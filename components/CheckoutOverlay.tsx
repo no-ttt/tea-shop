@@ -183,12 +183,6 @@ export default function CheckoutOverlay({
             </div>
           </div>
 
-          {!totals.qualifiesForFreeShipping && (
-            <div className={shared.shippingNotice}>
-              再加購 <b>{fmt(remainingForFreeShipping)}</b> 元即可享免運服務！
-            </div>
-          )}
-
           <div className={shared.sectionTitle}>會員資訊</div>
           <div className={shared.formField}>
             <label>
