@@ -26,7 +26,7 @@ import type {
 } from "./types";
 
 export async function getRegions(): Promise<Region[]> {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db.select().from(regionsTable).orderBy(regionsTable.sortOrder).all();
   return rows.map((r) => ({
     id: r.id,
@@ -40,7 +40,7 @@ export async function getRegions(): Promise<Region[]> {
 }
 
 export async function getProducts(region?: string): Promise<Product[]> {
-  const db = getDb();
+  const db = await getDb();
 
   const productRows = region
     ? await db
@@ -85,7 +85,7 @@ export async function getProducts(region?: string): Promise<Product[]> {
 }
 
 export async function getProductStatuses(): Promise<ProductStatus[]> {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db.select().from(productStatusesTable).all();
   return rows.map((s) => ({
     id: s.id,
@@ -101,7 +101,7 @@ export async function getProductStatuses(): Promise<ProductStatus[]> {
  * 部署/重建資料庫時務必確保全部 migration 都套用完整，不能只套一部分。
  */
 export async function getCustomerFields(): Promise<CustomerField[]> {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db
     .select()
     .from(customerFieldsTable)
@@ -118,7 +118,7 @@ export async function getCustomerFields(): Promise<CustomerField[]> {
 }
 
 export async function getBundleDiscounts(): Promise<BundleDiscount[]> {
-  const db = getDb();
+  const db = await getDb();
   const bundleRows = await db.select().from(bundleDiscountsTable).all();
   const joinRows = await db.select().from(bundleDiscountProductsTable).all();
 
@@ -185,7 +185,7 @@ const SITE_SETTINGS_DEFAULTS: SiteSettings = {
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db.select().from(siteSettingsTable).all();
   const map = new Map(rows.map((r) => [r.key, r.value]));
 
@@ -342,8 +342,9 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     throw new OrderValidationError("請先掃描 QR Code 完成付款，並確認付款狀態");
   }
 
-  const orderId = `QW${crypto.randomUUID()}`;
-  const db = getDb();
+  // QW + 毫秒時間戳(base36) + 2 碼隨機碼：短、人眼可讀，且遞增時間戳讓同時間訂單幾乎不重複。
+  const orderId = `QW${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`.toUpperCase();
+  const db = await getDb();
 
   const isCVS = payload.shippingMethod === "cvs";
   const orderRow = {

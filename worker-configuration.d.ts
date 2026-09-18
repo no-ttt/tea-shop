@@ -4,8 +4,8 @@
 interface __BaseEnv_Env {
 	DB: D1Database;
 	ASSETS: Fetcher;
-	ADMIN_PASSWORD: "";
-	SESSION_SECRET: "";
+	ADMIN_PASSWORD: string;
+	SESSION_SECRET: string;
 	RESEND_API_KEY: string;
 	EMAIL_FROM: string;
 }

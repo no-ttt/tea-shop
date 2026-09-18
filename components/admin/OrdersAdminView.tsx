@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { AdminOrder, AdminOrderFailure } from "@/lib/admin-data";
 import type { OrderStatus } from "@/lib/types";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
+import CustomSelect from "@/components/CustomSelect";
 import styles from "./adminShared.module.css";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -241,6 +242,17 @@ function OrderRow({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyOrderId = async () => {
+    try {
+      await navigator.clipboard.writeText(order.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // 剪貼簿權限被擋時靜默失敗，使用者仍可用 title 屬性 hover 看到完整編號。
+    }
+  };
 
   const handleStatusChange = async (next: OrderStatus) => {
     const prev = status;
@@ -273,25 +285,29 @@ function OrderRow({
   return (
     <>
       <tr>
-        <td>{order.id}</td>
+        <td>
+          <span className={styles.orderIdWrap}>
+            <button type="button" className={styles.orderIdCell} onClick={handleCopyOrderId}>
+              {order.id}
+            </button>
+            <span className={styles.orderIdTooltip}>{copied ? "已複製" : "點擊複製"}</span>
+          </span>
+        </td>
         <td>{order.createdAt}</td>
         <td>{order.customerName}</td>
         <td>{SHIPPING_LABEL[order.shippingMethod]}</td>
         <td>{PAYMENT_LABEL[order.paymentMethod]}</td>
         <td>NT${order.total}</td>
         <td>
-          <select
-            className={styles.select}
+          <CustomSelect
             value={status}
             disabled={saving || isPending}
-            onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
-          >
-            {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => handleStatusChange(v as OrderStatus)}
+            options={(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => ({
+              value: s,
+              label: STATUS_LABEL[s],
+            }))}
+          />
         </td>
         <td>
           <button type="button" className={styles.buttonSecondary} onClick={onToggle}>

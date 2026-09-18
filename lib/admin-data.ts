@@ -51,7 +51,7 @@ export interface RegionInput {
 }
 
 export async function createRegion(input: RegionInput): Promise<Region> {
-  const db = getDb();
+  const db = await getDb();
   const id = requireNonEmpty(input.id ?? crypto.randomUUID(), "分區代碼");
   const title = requireNonEmpty(input.title, "標題");
   const subtitle = requireNonEmpty(input.subtitle, "副標題");
@@ -74,7 +74,7 @@ export async function createRegion(input: RegionInput): Promise<Region> {
 }
 
 export async function updateRegion(id: string, input: Partial<RegionInput>): Promise<Region> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db.select().from(regionsTable).where(eq(regionsTable.id, id)).get();
   if (!existing) throw new AdminValidationError("找不到這個分區");
 
@@ -106,7 +106,7 @@ export async function updateRegion(id: string, input: Partial<RegionInput>): Pro
 }
 
 export async function deleteRegion(id: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   const inUse = await db
     .select({ id: productsTable.id })
     .from(productsTable)
@@ -136,7 +136,7 @@ function validateColor(color: string | null | undefined): string | null {
 }
 
 export async function createProductStatus(input: ProductStatusInput): Promise<ProductStatus> {
-  const db = getDb();
+  const db = await getDb();
   const id = requireNonEmpty(input.id ?? crypto.randomUUID(), "狀態代碼");
   const label = requireNonEmpty(input.label, "標籤文字");
   if (input.type !== "purchasable" && input.type !== "tag") {
@@ -152,7 +152,7 @@ export async function updateProductStatus(
   id: string,
   input: Partial<ProductStatusInput>,
 ): Promise<ProductStatus> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db
     .select()
     .from(productStatusesTable)
@@ -182,7 +182,7 @@ export async function updateProductStatus(
 }
 
 export async function deleteProductStatus(id: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db
     .select()
     .from(productStatusesTable)
@@ -217,12 +217,12 @@ export interface ProductInput {
   sortOrder?: number;
 }
 
-async function assertRegionExists(db: ReturnType<typeof getDb>, regionId: string) {
+async function assertRegionExists(db: Awaited<ReturnType<typeof getDb>>, regionId: string) {
   const region = await db.select().from(regionsTable).where(eq(regionsTable.id, regionId)).get();
   if (!region) throw new AdminValidationError("找不到這個分區");
 }
 
-async function assertStatusExists(db: ReturnType<typeof getDb>, statusId: string) {
+async function assertStatusExists(db: Awaited<ReturnType<typeof getDb>>, statusId: string) {
   const status = await db
     .select()
     .from(productStatusesTable)
@@ -244,7 +244,7 @@ function validatePrices(
   return { price30: prices["30"], price80: prices["80"], price150: prices["150"] };
 }
 
-async function loadProductImages(db: ReturnType<typeof getDb>, productId: string): Promise<string[]> {
+async function loadProductImages(db: Awaited<ReturnType<typeof getDb>>, productId: string): Promise<string[]> {
   const rows = await loadProductImagesWithId(db, productId);
   return rows.map((r) => r.url);
 }
@@ -255,7 +255,7 @@ export interface ProductImageWithId {
 }
 
 async function loadProductImagesWithId(
-  db: ReturnType<typeof getDb>,
+  db: Awaited<ReturnType<typeof getDb>>,
   productId: string,
 ): Promise<ProductImageWithId[]> {
   const rows = await db
@@ -269,12 +269,12 @@ async function loadProductImagesWithId(
 
 /** admin 專用：供編輯商品表單載入圖片時取得可用來刪除的 imageId（公開的 Product.images 只是 string[]，不含 id）。 */
 export async function getProductImagesWithId(productId: string): Promise<ProductImageWithId[]> {
-  const db = getDb();
+  const db = await getDb();
   return loadProductImagesWithId(db, productId);
 }
 
 export async function createProduct(input: ProductInput): Promise<Product> {
-  const db = getDb();
+  const db = await getDb();
   const id = requireNonEmpty(input.id ?? crypto.randomUUID(), "商品代碼");
   const name = requireNonEmpty(input.name, "品名");
   const region = requireNonEmpty(input.region, "分區");
@@ -307,7 +307,7 @@ export async function createProduct(input: ProductInput): Promise<Product> {
 }
 
 export async function updateProduct(id: string, input: Partial<ProductInput>): Promise<Product> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db.select().from(productsTable).where(eq(productsTable.id, id)).get();
   if (!existing) throw new AdminValidationError("找不到這個商品");
 
@@ -355,7 +355,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>): P
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   const inBundle = await db
     .select({ bundleId: bundleDiscountProductsTable.bundleId })
     .from(bundleDiscountProductsTable)
@@ -370,7 +370,7 @@ export async function deleteProduct(id: string): Promise<void> {
 // ---------- Product images ----------
 
 export async function addProductImage(productId: string, url: string): Promise<ProductImageWithId[]> {
-  const db = getDb();
+  const db = await getDb();
   const product = await db.select().from(productsTable).where(eq(productsTable.id, productId)).get();
   if (!product) throw new AdminValidationError("找不到這個商品");
 
@@ -390,7 +390,7 @@ export async function addProductImage(productId: string, url: string): Promise<P
 }
 
 export async function deleteProductImage(productId: string, imageId: number): Promise<ProductImageWithId[]> {
-  const db = getDb();
+  const db = await getDb();
   const image = await db
     .select()
     .from(productImagesTable)
@@ -423,7 +423,7 @@ function validateBundleDiscountValue(discountType: "amount" | "percent", discoun
 }
 
 async function setBundleProducts(
-  db: ReturnType<typeof getDb>,
+  db: Awaited<ReturnType<typeof getDb>>,
   bundleId: string,
   productIds: string[],
 ) {
@@ -441,7 +441,7 @@ async function setBundleProducts(
 }
 
 export async function createBundleDiscount(input: BundleDiscountInput): Promise<BundleDiscount> {
-  const db = getDb();
+  const db = await getDb();
   const id = requireNonEmpty(input.id ?? crypto.randomUUID(), "組合折扣代碼");
   const name = requireNonEmpty(input.name, "折扣名稱");
   if (input.discountType !== "amount" && input.discountType !== "percent") {
@@ -465,7 +465,7 @@ export async function updateBundleDiscount(
   id: string,
   input: Partial<BundleDiscountInput>,
 ): Promise<BundleDiscount> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db.select().from(bundleDiscountsTable).where(eq(bundleDiscountsTable.id, id)).get();
   if (!existing) throw new AdminValidationError("找不到這個組合折扣");
 
@@ -511,7 +511,7 @@ export async function updateBundleDiscount(
 }
 
 export async function deleteBundleDiscount(id: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   await db.delete(bundleDiscountsTable).where(eq(bundleDiscountsTable.id, id));
 }
 
@@ -532,7 +532,7 @@ export interface AdminCustomerField extends CustomerField {
 
 /** admin 專用：回傳所有欄位（含已停用），供後台清單顯示「啟用」按鈕用（公開的 getCustomerFields() 只回傳啟用中的欄位）。 */
 export async function getAllCustomerFields(): Promise<AdminCustomerField[]> {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db
     .select()
     .from(customerFieldsTable)
@@ -549,7 +549,7 @@ export async function getAllCustomerFields(): Promise<AdminCustomerField[]> {
 }
 
 export async function createCustomerField(input: CustomerFieldInput): Promise<AdminCustomerField> {
-  const db = getDb();
+  const db = await getDb();
   const id = requireNonEmpty(input.id ?? `custom_${Date.now()}`, "欄位代碼");
   const label = requireNonEmpty(input.label, "欄位名稱");
   if (input.type !== "text" && input.type !== "tel" && input.type !== "email" && input.type !== "date") {
@@ -580,7 +580,7 @@ export async function updateCustomerField(
   id: string,
   input: Partial<CustomerFieldInput>,
 ): Promise<AdminCustomerField> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db
     .select()
     .from(customerFieldsTable)
@@ -632,7 +632,7 @@ export async function updateCustomerField(
  * 改為 active = false，getCustomerFields() 只回傳啟用中的欄位。
  */
 export async function deleteCustomerField(id: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   const existing = await db
     .select()
     .from(customerFieldsTable)
@@ -717,7 +717,7 @@ function validateWeightOptions(v: unknown): string {
  * 每個 key 依其型別做伺服端驗證（不只依賴前端 input 限制）。
  */
 export async function updateSiteSettings(patch: Record<string, unknown>): Promise<SiteSettings> {
-  const db = getDb();
+  const db = await getDb();
 
   for (const key of Object.keys(patch)) {
     if (!(key in SETTINGS_KEY_VALIDATORS)) {
@@ -815,7 +815,7 @@ export interface ListOrdersResult {
 }
 
 export async function listOrders(params: ListOrdersParams = {}): Promise<ListOrdersResult> {
-  const db = getDb();
+  const db = await getDb();
   const page = Math.max(1, params.page ?? 1);
   const pageSize = ORDERS_PAGE_SIZE;
   const where = params.status ? eq(ordersTable.status, params.status) : undefined;
@@ -855,7 +855,7 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
   if (!ORDER_STATUSES.includes(status)) {
     throw new AdminValidationError("訂單狀態格式錯誤");
   }
-  const db = getDb();
+  const db = await getDb();
   const updated = await db.update(ordersTable).set({ status }).where(eq(ordersTable.id, id)).returning().get();
   if (!updated) throw new AdminValidationError("找不到這筆訂單");
 
@@ -887,7 +887,7 @@ export interface ListOrderFailuresResult {
 }
 
 export async function listOrderFailures(params: ListOrderFailuresParams = {}): Promise<ListOrderFailuresResult> {
-  const db = getDb();
+  const db = await getDb();
   const page = Math.max(1, params.page ?? 1);
   const pageSize = ORDER_FAILURES_PAGE_SIZE;
 

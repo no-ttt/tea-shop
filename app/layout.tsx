@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
-import { getBaseUrl, fetchJson } from "@/lib/fetch-api";
-import type { SiteSettings } from "@/lib/data";
+import { getSiteSettings } from "@/lib/data";
 import "./globals.css";
+
+// 全站每個頁面都經由這個 root layout 讀取 D1（getSiteSettings），強制 dynamic
+// 避免 Next.js/OpenNext 在 build 階段嘗試把任何路由預渲染成靜態頁——建置環境下
+// 短生命週期呼叫 D1 曾經觸發 SQLITE_BUSY/internal error，且 D1 binding 本來就
+// 只在真實請求執行環境中可用，靜態預渲染階段拿不到。
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "棋願製造｜茶單選購",
@@ -19,8 +24,7 @@ function safeColor(value: string, fallback: string): string {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const baseUrl = await getBaseUrl();
-  const settings = await fetchJson<SiteSettings>(baseUrl, "/api/site-settings");
+  const settings = await getSiteSettings();
   const { theme } = settings;
 
   const scaleTitle = safeScale(theme.scaleTitle, 1);

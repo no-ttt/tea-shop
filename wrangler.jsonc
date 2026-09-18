@@ -16,13 +16,10 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
-  // RESEND_API_KEY／EMAIL_FROM／ADMIN_PASSWORD／SESSION_SECRET 只在這裡宣告型別用的空字串預設值；
-  // 正式環境的實際值一律用 `wrangler secret put` 設定（會覆蓋這裡的 vars），
-  // 本地開發用 .dev.vars（已加進 .gitignore，不進版控）。
-  "vars": {
-    "RESEND_API_KEY": "",
-    "EMAIL_FROM": "",
-    "ADMIN_PASSWORD": "",
-    "SESSION_SECRET": ""
-  }
+  // RESEND_API_KEY／EMAIL_FROM／ADMIN_PASSWORD／SESSION_SECRET 刻意不宣告在這裡的 "vars"：
+  // Cloudflare 不允許同一個 binding 名稱同時是 var 又是 secret，且每次 `wrangler deploy`
+  // 都會用這裡的 vars 覆蓋掉正式環境已用 `wrangler secret put` 設定的 secrets（曾經因此
+  // 被整批清空過一次）。正式環境的值一律只用 `wrangler secret put` 管理；本地開發用
+  // .dev.vars（已加進 .gitignore，不進版控）。型別透過 worker-configuration.d.ts 手動維護
+  // （執行 `npx wrangler types` 前記得留意它會依這裡的 vars 重新產生，目前刻意不重新產生）。
 }

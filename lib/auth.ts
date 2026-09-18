@@ -65,7 +65,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 export async function getAdminPasswordOverrideHash(): Promise<string | null> {
-  const db = getDb();
+  const db = await getDb();
   const row = await db
     .select()
     .from(siteSettings)
@@ -75,7 +75,7 @@ export async function getAdminPasswordOverrideHash(): Promise<string | null> {
 }
 
 export async function setAdminPasswordOverrideHash(hash: string): Promise<void> {
-  const db = getDb();
+  const db = await getDb();
   await db
     .insert(siteSettings)
     .values({ key: ADMIN_PASSWORD_OVERRIDE_KEY, value: hash })

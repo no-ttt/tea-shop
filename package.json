@@ -16,7 +16,10 @@
     "db:seed:dump": "wrangler d1 export qiwish-db --local --output=drizzle/seed.sql --no-schema -y --table=regions --table=product_statuses --table=products --table=product_images --table=customer_fields --table=bundle_discounts --table=bundle_discount_products --table=site_settings && node scripts/wrap-seed-transaction.mjs",
     "db:seed:local": "wrangler d1 execute qiwish-db --local --file=drizzle/seed.sql",
     "db:seed:remote": "wrangler d1 execute qiwish-db --remote --file=drizzle/seed.sql",
-    "db:reset:local": "wrangler d1 execute qiwish-db --local --file=drizzle/reset-local.sql && wrangler d1 execute qiwish-db --local --file=drizzle/seed.sql"
+    "db:reset:local": "wrangler d1 execute qiwish-db --local --file=drizzle/reset-local.sql && wrangler d1 execute qiwish-db --local --file=drizzle/seed.sql",
+    "db:clear-orders:local": "wrangler d1 execute qiwish-db --local --file=drizzle/clear-orders.sql",
+    "db:clear-orders:remote": "wrangler d1 execute qiwish-db --remote --file=drizzle/clear-orders.sql",
+    "secrets:set": "bash scripts/set-production-secrets.sh"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
