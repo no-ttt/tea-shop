@@ -112,7 +112,6 @@ export default function CheckoutOverlay({
   };
 
   const handleSubmit = async () => {
-    setFreeShippingConfirmOpen(false);
     setError(null);
 
     const extra: CheckoutSubmitExtra = {
@@ -154,7 +153,9 @@ export default function CheckoutOverlay({
 
     if (!result.ok) {
       setError(result.error);
+      return;
     }
+    setFreeShippingConfirmOpen(false);
   };
 
   return (
@@ -427,6 +428,8 @@ export default function CheckoutOverlay({
       {freeShippingConfirmOpen && (
         <FreeShippingConfirmModal
           remaining={remainingForFreeShipping}
+          submitting={submitting}
+          error={error}
           onConfirm={handleSubmit}
           onCancel={() => setFreeShippingConfirmOpen(false)}
         />

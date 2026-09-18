@@ -2,10 +2,14 @@ import shared from "./checkoutShared.module.css";
 
 export default function FreeShippingConfirmModal({
   remaining,
+  submitting,
+  error,
   onConfirm,
   onCancel,
 }: {
   remaining: number;
+  submitting: boolean;
+  error: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -20,10 +24,13 @@ export default function FreeShippingConfirmModal({
             再加購 <b style={{ color: "var(--accent)" }}>${remaining.toLocaleString("en-US")}</b>{" "}
             元即可享免運服務，確定要直接送出這筆訂單嗎？
           </p>
-          <button type="button" className={shared.button} onClick={onConfirm}>
-            直接送出訂單
+          {error && (
+            <div style={{ color: "#e08a7a", fontSize: 13, marginBottom: 14, textAlign: "center" }}>{error}</div>
+          )}
+          <button type="button" className={shared.button} disabled={submitting} onClick={onConfirm}>
+            {submitting ? "送出中…" : "直接送出訂單"}
           </button>
-          <button type="button" className={shared.buttonSecondary} onClick={onCancel}>
+          <button type="button" className={shared.buttonSecondary} disabled={submitting} onClick={onCancel}>
             返回加購
           </button>
         </div>
