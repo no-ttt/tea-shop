@@ -140,3 +140,20 @@
   border-radius: 8px;
   cursor: pointer;
 }
+
+.shippingNotice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
+  background: rgba(201, 138, 75, 0.18);
+  border: 1px solid var(--accent);
+  color: var(--cream);
+}
+
+.shippingNotice b {
+  color: var(--accent);
+  font-size: 14px;
+}

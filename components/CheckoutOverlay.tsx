@@ -35,6 +35,7 @@ export default function CheckoutOverlay({
   cart,
   totals,
   customerFields,
+  freeShippingThreshold,
   linePayQrImage,
   onClose,
   onSubmit,
@@ -43,6 +44,7 @@ export default function CheckoutOverlay({
   cart: CartLine[];
   totals: OrderTotals;
   customerFields: CustomerField[];
+  freeShippingThreshold: number;
   linePayQrImage: string;
   onClose: () => void;
   onSubmit: (
@@ -68,6 +70,9 @@ export default function CheckoutOverlay({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
   const [bankTransferLast5, setBankTransferLast5] = useState("");
   const [linePayLast3, setLinePayLast3] = useState("");
+
+  const totalBeforeShipping = Math.max(0, totals.subtotal - totals.bundleDiscountAmount);
+  const remainingForFreeShipping = freeShippingThreshold - totalBeforeShipping;
   const [bankModalOpen, setBankModalOpen] = useState(false);
   const [linePayQrOpen, setLinePayQrOpen] = useState(false);
   const [linePayConfirmOpen, setLinePayConfirmOpen] = useState(false);
@@ -166,6 +171,12 @@ export default function CheckoutOverlay({
               <span>{fmt(totals.total)}</span>
             </div>
           </div>
+
+          {!totals.qualifiesForFreeShipping && (
+            <div className={shared.shippingNotice}>
+              再加購 <b>{fmt(remainingForFreeShipping)}</b> 元即可享免運服務！
+            </div>
+          )}
 
           <div className={shared.sectionTitle}>會員資訊</div>
           <div className={shared.formField}>

@@ -223,6 +223,7 @@ export default function Storefront({
         cart={cart}
         totals={totals}
         customerFields={customerFields}
+        freeShippingThreshold={siteSettings.shipping.freeThreshold}
         linePayQrImage={siteSettings.branding.linePayQrImage}
         onClose={() => setCheckoutOpen(false)}
         onSubmit={handleSubmitOrder}
