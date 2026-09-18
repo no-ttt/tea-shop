@@ -61,6 +61,20 @@ export default function OrderCompleteOverlay({
               <div>{fmt(line.price)}</div>
             </div>
           ))}
+          <div className={shared.summarySubRow}>
+            <span>商品小計</span>
+            <span>{fmt(confirmation.subtotal)}</span>
+          </div>
+          {confirmation.bundleDiscountAmount > 0 && (
+            <div className={shared.summarySubRow}>
+              <span>{confirmation.bundleName ?? "組合折扣"}</span>
+              <span>－{fmt(confirmation.bundleDiscountAmount)}</span>
+            </div>
+          )}
+          <div className={shared.summarySubRow}>
+            <span>運費</span>
+            <span>{confirmation.shippingFee > 0 ? fmt(confirmation.shippingFee) : "免運"}</span>
+          </div>
           <div className={shared.summaryTotal}>
             <span>總計</span>
             <span>{fmt(confirmation.total)}</span>
@@ -111,8 +125,6 @@ export default function OrderCompleteOverlay({
           {extra.paymentMethod === "bank"
             ? `（後五碼：${extra.bankTransferLast5}）`
             : `（客人回報電話後三碼：${extra.linePayLast3}）`}
-          <br />
-          運費：{confirmation.shippingFee === 0 ? "免運" : fmt(confirmation.shippingFee)}
         </div>
 
         <button type="button" className={shared.button} style={{ marginTop: 22 }} onClick={onBackToShop}>

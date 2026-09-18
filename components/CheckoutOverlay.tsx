@@ -178,6 +178,20 @@ export default function CheckoutOverlay({
                 <div>{fmt(line.price)}</div>
               </div>
             ))}
+            <div className={shared.summarySubRow}>
+              <span>商品小計</span>
+              <span>{fmt(totals.subtotal)}</span>
+            </div>
+            {totals.bundleDiscountAmount > 0 && (
+              <div className={shared.summarySubRow}>
+                <span>{totals.bundleName ?? "組合折扣"}</span>
+                <span>－{fmt(totals.bundleDiscountAmount)}</span>
+              </div>
+            )}
+            <div className={shared.summarySubRow}>
+              <span>運費</span>
+              <span>{totals.shippingFee > 0 ? fmt(totals.shippingFee) : "免運"}</span>
+            </div>
             <div className={shared.summaryTotal}>
               <span>總計</span>
               <span>{fmt(totals.total)}</span>
