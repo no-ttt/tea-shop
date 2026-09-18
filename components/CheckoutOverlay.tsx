@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CartLine, CustomerField, OrderTotals, OrderPayload, OrderConfirmation, ShippingMethod, PaymentMethod } from "@/lib/types";
 import BankTransferModal from "./BankTransferModal";
+import FreeShippingConfirmModal from "./FreeShippingConfirmModal";
 import LinePayQrModal from "./LinePayQrModal";
 import LinePayConfirmModal from "./LinePayConfirmModal";
 import CustomSelect from "./CustomSelect";
@@ -78,6 +79,7 @@ export default function CheckoutOverlay({
   const [linePayConfirmOpen, setLinePayConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [freeShippingConfirmOpen, setFreeShippingConfirmOpen] = useState(false);
 
   if (!open) return null;
 
@@ -101,7 +103,16 @@ export default function CheckoutOverlay({
     }
   };
 
+  const handleSubmitClick = () => {
+    if (!totals.qualifiesForFreeShipping) {
+      setFreeShippingConfirmOpen(true);
+      return;
+    }
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
+    setFreeShippingConfirmOpen(false);
     setError(null);
 
     const extra: CheckoutSubmitExtra = {
@@ -413,11 +424,19 @@ export default function CheckoutOverlay({
             <div style={{ color: "#e08a7a", fontSize: 13, marginTop: 14, textAlign: "center" }}>{error}</div>
           )}
 
-          <button type="button" className={shared.button} style={{ marginTop: 22 }} disabled={submitting} onClick={handleSubmit}>
+          <button type="button" className={shared.button} style={{ marginTop: 22 }} disabled={submitting} onClick={handleSubmitClick}>
             {submitting ? "送出中…" : "送出訂單"}
           </button>
         </div>
       </div>
+
+      {freeShippingConfirmOpen && (
+        <FreeShippingConfirmModal
+          remaining={remainingForFreeShipping}
+          onConfirm={handleSubmit}
+          onCancel={() => setFreeShippingConfirmOpen(false)}
+        />
+      )}
 
       {bankModalOpen && (
         <BankTransferModal
