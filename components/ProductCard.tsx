@@ -17,6 +17,8 @@ export default function ProductCard({
   weightOptions,
   onSelectWeight,
   onAddToCart,
+  adding,
+  addDisabled,
   onOpenLightbox,
 }: {
   product: Product;
@@ -25,6 +27,10 @@ export default function ProductCard({
   weightOptions: number[];
   onSelectWeight: (productId: string, weight: number) => void;
   onAddToCart: (productId: string) => void;
+  /** 這個商品正在向伺服器確認庫存/價格 */
+  adding: boolean;
+  /** 有任一商品正在確認中（避免同時多筆請求造成購物車更新順序錯亂） */
+  addDisabled: boolean;
   onOpenLightbox: (src: string) => void;
 }) {
   if (status.type !== "purchasable") {
@@ -96,10 +102,10 @@ export default function ProductCard({
         <button
           type="button"
           className={styles.addBtn}
-          disabled={!selectedWeight}
+          disabled={!selectedWeight || addDisabled}
           onClick={() => onAddToCart(product.id)}
         >
-          加入
+          {adding ? "確認中…" : "加入"}
         </button>
       </div>
     </div>

@@ -21,6 +21,10 @@ import type {
   ProductStatus,
   CustomerField,
   BundleDiscount,
+  CartLine,
+  CartIssue,
+  CheckoutCheckResponse,
+  CheckoutSettingsChanges,
   OrderPayload,
   OrderConfirmation,
 } from "./types";
@@ -241,6 +245,133 @@ export class OrderValidationError extends Error {
 }
 
 /**
+ * 結帳資料與資料庫現況不一致（客人開著舊頁面時，店家在後台改了商品或結帳相關設定），
+ * API 回 409 並附上 check 讓前台更新購物車、重新載入設定並提示客人。
+ */
+export class CheckoutChangedError extends OrderValidationError {
+  check: CheckoutCheckResponse;
+  constructor(check: CheckoutCheckResponse) {
+    super("商品或結帳資訊已更新，請確認新的金額後重新送出");
+    this.check = check;
+  }
+}
+
+const CHECKOUT_VERSION_SECTIONS = ["customerFields", "bundles", "shipping", "linePayQr"] as const;
+
+async function shortHash(value: unknown): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(value)));
+  return [...new Uint8Array(digest).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * 結帳相關設定的指紋，四段以 "." 串接（順序同 CHECKOUT_VERSION_SECTIONS）：
+ * 顧客欄位、組合折扣、運費/免運門檻、LINE Pay QR Code。
+ * 首頁把它交給前台，前台檢查/送單時帶回來，伺服器逐段比對就知道客人頁面上哪一部分過期了，
+ * 前台才能針對性地提示（例如只有 QR Code 換了，瀏覽商品時就不必打擾客人）。
+ * 各段先排序再序列化，避免資料庫回傳順序不同造成誤判。
+ */
+export async function computeCheckoutVersion(ctx: {
+  customerFields: CustomerField[];
+  bundles: BundleDiscount[];
+  settings: SiteSettings;
+}): Promise<string> {
+  const byId = (a: unknown[], b: unknown[]) => String(a[0]).localeCompare(String(b[0]));
+  const sections: Record<(typeof CHECKOUT_VERSION_SECTIONS)[number], unknown> = {
+    customerFields: ctx.customerFields.map((f) => [f.id, f.type, f.required]).sort(byId),
+    bundles: ctx.bundles
+      .map((b) => [b.id, b.name, b.discountType, b.discountValue, [...b.productIds].sort()])
+      .sort(byId),
+    shipping: [ctx.settings.shipping.freeThreshold, ctx.settings.shipping.fee],
+    linePayQr: ctx.settings.branding.linePayQrImage,
+  };
+  const hashes = await Promise.all(CHECKOUT_VERSION_SECTIONS.map((key) => shortHash(sections[key])));
+  return hashes.join(".");
+}
+
+function diffCheckoutVersion(clientVersion: string, serverVersion: string): CheckoutSettingsChanges {
+  const client = clientVersion.split(".");
+  const server = serverVersion.split(".");
+  const changed = (i: number) => client[i] !== server[i];
+  return { customerFields: changed(0), bundles: changed(1), shipping: changed(2), linePayQr: changed(3) };
+}
+
+/**
+ * 以資料庫現況比對購物車：商品不存在、狀態不是 purchasable、該克數沒有價格 → unavailable；
+ * 價格與購物車記錄的不同 → priceChanged。
+ * lines 是以資料庫資料重建的購物車（排除 unavailable、價格/品名/區域名稱都取資料庫現值），
+ * 寫入訂單一律用它，不採用前台送來的 name/detail/price。
+ */
+async function resolveCart(cart: CartLine[]): Promise<{ issues: CartIssue[]; lines: CartLine[] }> {
+  if (cart.length === 0) return { issues: [], lines: [] };
+  const db = await getDb();
+  const productIds = [...new Set(cart.map((item) => item.productId))];
+  const [productRows, statusRows, regionRows] = await Promise.all([
+    db.select().from(productsTable).where(inArray(productsTable.id, productIds)).all(),
+    db.select().from(productStatusesTable).all(),
+    db.select().from(regionsTable).all(),
+  ]);
+  const productMap = new Map(productRows.map((p) => [p.id, p]));
+  const statusMap = new Map(statusRows.map((s) => [s.id, s]));
+  const regionTitleMap = new Map(regionRows.map((r) => [r.id, r.title]));
+
+  const issues: CartIssue[] = [];
+  const lines: CartLine[] = [];
+  for (const item of cart) {
+    const base = { key: item.key, name: item.name, detail: item.detail };
+    const product = productMap.get(item.productId);
+    if (!product) {
+      issues.push({ ...base, kind: "unavailable", reason: "已下架" });
+      continue;
+    }
+    const status = statusMap.get(product.statusId);
+    if (status?.type !== "purchasable") {
+      issues.push({ ...base, kind: "unavailable", reason: status?.label ?? "目前無法購買" });
+      continue;
+    }
+    const currentPrice =
+      item.weight === 30 ? product.price30 : item.weight === 80 ? product.price80 : item.weight === 150 ? product.price150 : null;
+    if (currentPrice === null) {
+      issues.push({ ...base, kind: "unavailable", reason: "此規格目前無法購買" });
+      continue;
+    }
+    if (currentPrice !== item.price) {
+      issues.push({ ...base, kind: "priceChanged", oldPrice: item.price, newPrice: currentPrice });
+    }
+    // 名稱/區域格式與 Storefront.handleAddToCart 一致
+    lines.push({
+      key: item.key,
+      productId: product.id,
+      name: product.name.replace(/\n/g, " "),
+      detail: `${regionTitleMap.get(product.regionId) ?? product.regionId}／${item.weight}g`,
+      price: currentPrice,
+      weight: item.weight,
+    });
+  }
+  return { issues, lines };
+}
+
+async function inspectCheckout(cart: CartLine[], checkoutVersion: string) {
+  const [{ issues, lines }, customerFields, bundles, settings] = await Promise.all([
+    resolveCart(cart),
+    getCustomerFields(),
+    getBundleDiscounts(),
+    getSiteSettings(),
+  ]);
+  const changed = diffCheckoutVersion(checkoutVersion, await computeCheckoutVersion({ customerFields, bundles, settings }));
+  const totals = calcOrderTotals(lines, bundles, settings.shipping.freeThreshold, settings.shipping.fee);
+  return { issues, changed, lines, totals, customerFields, bundles, settings };
+}
+
+/**
+ * 結帳前的預先檢查（開啟結帳頁、選擇付款方式時由 /api/checkout/check 呼叫），
+ * 讓客人在付款前就知道商品或結帳設定已變動。真正的把關仍在 createOrder 裡再做一次。
+ */
+export async function checkCheckout(cart: CartLine[], checkoutVersion: string): Promise<CheckoutCheckResponse> {
+  const { issues, changed, totals, settings } = await inspectCheckout(cart, checkoutVersion);
+  return { issues, changed, totals, shipping: settings.shipping };
+}
+
+/**
  * 驗證規則與錯誤訊息逐字比照原網站 submitOrder()。
  * 驗證通過後計算金額、寫入資料庫（orders／order_items／order_field_values），
  * 並以 fire-and-forget 方式觸發 email 通知。
@@ -257,19 +388,24 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
       typeof item.name !== "string" ||
       typeof item.detail !== "string" ||
       typeof item.price !== "number" ||
-      !Number.isFinite(item.price)
+      !Number.isFinite(item.price) ||
+      typeof item.weight !== "number"
     ) {
       throw new OrderValidationError("購物車資料格式錯誤");
     }
   }
 
-  const [customerFields, bundles, settings] = await Promise.all([
-    getCustomerFields(),
-    getBundleDiscounts(),
-    getSiteSettings(),
-  ]);
+  if (typeof payload.checkoutVersion !== "string") {
+    throw new OrderValidationError("購物車資料格式錯誤");
+  }
 
-  const totals = calcOrderTotals(payload.cart, bundles, settings.shipping.freeThreshold, settings.shipping.fee);
+  const { issues, changed, lines, totals, customerFields, settings } = await inspectCheckout(
+    payload.cart,
+    payload.checkoutVersion,
+  );
+  if (issues.length > 0 || Object.values(changed).some(Boolean)) {
+    throw new CheckoutChangedError({ issues, changed, totals, shipping: settings.shipping });
+  }
   const qualifiesForGroup = totals.qualifiesForFreeShipping;
 
   // lineId 不放在這個集合裡：它已經在下方迴圈最前面被單獨攔截並 continue，
@@ -293,8 +429,9 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
       continue;
     }
 
-    const isCVS = payload.shippingMethod === "cvs";
-    if (isCVS && (field.id === "zip" || field.id === "address")) continue;
+    // 郵遞區號/地址只在選「郵寄地址」時需要；還沒選取貨方式時也先跳過，交給下方的「請選擇取貨方式」提示，
+    // 避免客人還沒選就先被要求填地址。
+    if (payload.shippingMethod !== "mail" && (field.id === "zip" || field.id === "address")) continue;
 
     // 內建欄位（builtin: true）維持型別安全的明確屬性存取；
     // 店家在後台新增的自訂欄位（builtin: false）則從 customFieldValues 依欄位 id 查表取值，
@@ -322,6 +459,10 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     }
   }
 
+  if (payload.shippingMethod !== "mail" && payload.shippingMethod !== "cvs") {
+    throw new OrderValidationError("請選擇取貨方式");
+  }
+
   if (payload.shippingMethod === "cvs" && !payload.cvsStoreName) {
     throw new OrderValidationError("請填寫超商門市名稱", "cvsStoreName");
   }
@@ -330,7 +471,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     throw new OrderValidationError("已勾選送禮，請填寫收禮人姓名", "custGiftName");
   }
 
-  if (!payload.paymentMethod) {
+  if (payload.paymentMethod !== "bank" && payload.paymentMethod !== "linepay") {
     throw new OrderValidationError("請選擇付款方式");
   }
 
@@ -372,7 +513,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     total: totals.total,
   };
 
-  const itemRows = payload.cart.map((item) => ({
+  const itemRows = lines.map((item) => ({
     orderId,
     productId: item.productId,
     cartKey: item.key,
@@ -418,7 +559,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
   const confirmation: OrderConfirmation = {
     orderId,
     status: "pending_payment",
-    cart: payload.cart,
+    cart: lines,
     ...totals,
   };
 

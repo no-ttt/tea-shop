@@ -1,17 +1,21 @@
 import { Resend } from "resend";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { SiteSettings } from "./data";
-import type { OrderConfirmation, OrderPayload } from "./types";
+import type { CustomerField, OrderConfirmation, OrderPayload, PaymentMethod, ShippingMethod } from "./types";
 
-const SHIPPING_METHOD_LABEL: Record<OrderPayload["shippingMethod"], string> = {
+const SHIPPING_METHOD_LABEL: Record<ShippingMethod, string> = {
   mail: "郵寄",
   cvs: "超商取貨",
 };
 
-const PAYMENT_METHOD_LABEL: Record<OrderPayload["paymentMethod"], string> = {
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   bank: "銀行匯款",
   linepay: "LINE Pay",
 };
+
+// 寄信時訂單已通過 createOrder 驗證，兩者都不會是 null；後備文字只是讓型別完整。
+const shippingLabel = (method: ShippingMethod | null) => (method ? SHIPPING_METHOD_LABEL[method] : "未選擇");
+const paymentLabel = (method: PaymentMethod | null) => (method ? PAYMENT_METHOD_LABEL[method] : "未選擇");
 
 function escapeHtml(value: string): string {
   return value
@@ -22,7 +26,14 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildOrderEmailHtml(payload: OrderPayload, confirmation: OrderConfirmation): string {
+function buildOrderEmailHtml(
+  payload: OrderPayload,
+  confirmation: OrderConfirmation,
+  customerFields: CustomerField[],
+): string {
+  // 欄位名稱沿用後台「顧客欄位」的設定（含免運門檻說明），店家改說明時信件會跟著變
+  const lineIdLabel = customerFields.find((f) => f.id === "lineId")?.label ?? "LINE ID";
+
   const itemsHtml = confirmation.cart
     .map((item) => `<li>${escapeHtml(item.name)}（${escapeHtml(item.detail)}）× NT$${escapeHtml(String(item.price))}</li>`)
     .join("");
@@ -32,11 +43,13 @@ function buildOrderEmailHtml(payload: OrderPayload, confirmation: OrderConfirmat
     ["客戶姓名", payload.customer.name],
     ["電話", payload.customer.phone],
     ["Email", payload.customer.email],
-    ["配送方式", SHIPPING_METHOD_LABEL[payload.shippingMethod]],
+    // 只有滿免運門檻時前台才會顯示並要求填寫 LINE ID（店家要據此邀請加入會員群組），未達門檻時不會有值
+    ...(payload.customer.lineId ? [[lineIdLabel, payload.customer.lineId] as [string, string]] : []),
+    ["配送方式", shippingLabel(payload.shippingMethod)],
     payload.shippingMethod === "cvs"
       ? ["超商門市", payload.cvsStoreName ?? ""]
       : ["地址", `${payload.customer.zip ?? ""} ${payload.customer.address ?? ""}`],
-    ["付款方式", PAYMENT_METHOD_LABEL[payload.paymentMethod]],
+    ["付款方式", paymentLabel(payload.paymentMethod)],
     ["商品小計", `NT$${confirmation.subtotal}`],
     ["組合折扣", confirmation.bundleName ? `${confirmation.bundleName}（-NT$${confirmation.bundleDiscountAmount}）` : "無"],
     ["運費", `NT$${confirmation.shippingFee}`],
@@ -62,11 +75,11 @@ function buildCustomerEmailHtml(payload: OrderPayload, confirmation: OrderConfir
 
   const rows: Array<[string, string]> = [
     ["訂單編號", confirmation.orderId],
-    ["配送方式", SHIPPING_METHOD_LABEL[payload.shippingMethod]],
+    ["配送方式", shippingLabel(payload.shippingMethod)],
     payload.shippingMethod === "cvs"
       ? ["超商門市", payload.cvsStoreName ?? ""]
       : ["地址", `${payload.customer.zip ?? ""} ${payload.customer.address ?? ""}`],
-    ["付款方式", PAYMENT_METHOD_LABEL[payload.paymentMethod]],
+    ["付款方式", paymentLabel(payload.paymentMethod)],
     ["商品小計", `NT$${confirmation.subtotal}`],
     ["組合折扣", confirmation.bundleName ? `${confirmation.bundleName}（-NT$${confirmation.bundleDiscountAmount}）` : "無"],
     ["運費", `NT$${confirmation.shippingFee}`],
@@ -92,6 +105,7 @@ export async function sendOrderNotification(
   payload: OrderPayload,
   confirmation: OrderConfirmation,
   settings: SiteSettings,
+  customerFields: CustomerField[],
 ): Promise<void> {
   const { env } = getCloudflareContext();
   const apiKey = env.RESEND_API_KEY;
@@ -110,7 +124,7 @@ export async function sendOrderNotification(
         from,
         to: settings.notify.shopEmail,
         subject: `新訂單通知 ${confirmation.orderId}`,
-        html: buildOrderEmailHtml(payload, confirmation),
+        html: buildOrderEmailHtml(payload, confirmation, customerFields),
       }).then(({ error }) => {
         if (error) throw new Error(`寄送店主通知失敗：${error.message}`);
       }),

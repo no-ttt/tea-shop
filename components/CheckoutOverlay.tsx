@@ -23,10 +23,11 @@ export interface CheckoutSubmitExtra {
   birthday?: string;
   isGift: boolean;
   giftName?: string;
-  shippingMethod: ShippingMethod;
+  /** 未選擇時為 null（取貨/付款方式都不預選，送出時由伺服器提示客人選擇） */
+  shippingMethod: ShippingMethod | null;
   cvsType?: string;
   cvsStoreName?: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentMethod | null;
   bankTransferLast5?: string;
   linePayLast3?: string;
 }
@@ -39,6 +40,7 @@ export default function CheckoutOverlay({
   freeShippingThreshold,
   linePayQrImage,
   onClose,
+  onVerifyCheckout,
   onSubmit,
 }: {
   open: boolean;
@@ -48,8 +50,10 @@ export default function CheckoutOverlay({
   freeShippingThreshold: number;
   linePayQrImage: string;
   onClose: () => void;
+  /** 向伺服器確認購物車與結帳設定是否仍是最新；回傳 false 代表已被更新，不應繼續付款流程 */
+  onVerifyCheckout: () => Promise<boolean>;
   onSubmit: (
-    payload: OrderPayload,
+    payload: Omit<OrderPayload, "checkoutVersion">,
     extra: CheckoutSubmitExtra,
   ) => Promise<{ ok: true; confirmation: OrderConfirmation } | { ok: false; error: string }>;
 }) {
@@ -63,12 +67,12 @@ export default function CheckoutOverlay({
   const [birthYear, setBirthYear] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthDay, setBirthDay] = useState("");
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("mail");
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod | null>(null);
   const [cvsType, setCvsType] = useState(CVS_TYPES[0]);
   const [cvsStoreName, setCvsStoreName] = useState("");
   const [isGift, setIsGift] = useState(false);
   const [giftName, setGiftName] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [bankTransferLast5, setBankTransferLast5] = useState("");
   const [linePayLast3, setLinePayLast3] = useState("");
 
@@ -79,6 +83,7 @@ export default function CheckoutOverlay({
   const [linePayConfirmOpen, setLinePayConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [freeShippingConfirmOpen, setFreeShippingConfirmOpen] = useState(false);
 
   if (!open) return null;
@@ -93,9 +98,15 @@ export default function CheckoutOverlay({
   const addressField = customerFields.find((f) => f.id === "address");
   const customFields = customerFields.filter((f) => !f.builtin);
 
-  const handlePaymentSelect = (method: PaymentMethod) => {
+  const handlePaymentSelect = async (method: PaymentMethod) => {
     setPaymentMethod(method);
     setError(null);
+    // 付款前再確認一次購物車與結帳設定（客人可能在結帳頁停留很久），避免依過期的金額或舊 QR Code 付款；
+    // 有變動時 Storefront 會更新購物車並跳出提示，這裡就不開付款視窗。
+    setVerifying(true);
+    const ok = await onVerifyCheckout();
+    setVerifying(false);
+    if (!ok) return;
     if (method === "bank") {
       setBankModalOpen(true);
     } else {
@@ -132,7 +143,7 @@ export default function CheckoutOverlay({
       linePayLast3: paymentMethod === "linepay" ? linePayLast3 : undefined,
     };
 
-    const payload: OrderPayload = {
+    const payload: Omit<OrderPayload, "checkoutVersion"> = {
       cart,
       customer: { name, phone, lineId: extra.lineId, email, zip: extra.zip, address: extra.address },
       customFieldValues: customFields.length > 0 ? customFieldValues : undefined,
@@ -323,7 +334,7 @@ export default function CheckoutOverlay({
             </div>
           </div>
 
-          {shippingMethod === "mail" ? (
+          {shippingMethod === "mail" && (
             <>
               {zipField && (
                 <div className={shared.formField}>
@@ -342,7 +353,8 @@ export default function CheckoutOverlay({
                 </div>
               )}
             </>
-          ) : (
+          )}
+          {shippingMethod === "cvs" && (
             <>
               <div className={shared.formField}>
                 <label>
@@ -396,6 +408,7 @@ export default function CheckoutOverlay({
                 fontWeight: paymentMethod === "bank" ? 700 : 400,
                 cursor: "pointer",
               }}
+              disabled={verifying}
               onClick={() => handlePaymentSelect("bank")}
             >
               匯款
@@ -413,6 +426,7 @@ export default function CheckoutOverlay({
                 fontWeight: paymentMethod === "linepay" ? 700 : 400,
                 cursor: "pointer",
               }}
+              disabled={verifying}
               onClick={() => handlePaymentSelect("linepay")}
             >
               LINE Pay

@@ -364,6 +364,16 @@ export async function deleteProduct(id: string): Promise<void> {
   if (inBundle) {
     throw new AdminValidationError("這個商品還被組合折扣使用，請先從組合折扣中移除");
   }
+  // order_items.product_id 有外鍵指向 products（沒有 cascade，也不該 cascade 刪掉歷史訂單），
+  // 不先擋的話 DELETE 會直接撞外鍵變成 500，店家只看到籠統的錯誤。
+  const inOrder = await db
+    .select({ orderId: orderItemsTable.orderId })
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.productId, id))
+    .get();
+  if (inOrder) {
+    throw new AdminValidationError("這個商品已有訂單紀錄，無法刪除；請改將狀態設為「已售完」等不可購買的狀態");
+  }
   await db.delete(productsTable).where(eq(productsTable.id, id));
 }
 

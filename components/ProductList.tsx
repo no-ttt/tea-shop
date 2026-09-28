@@ -10,6 +10,7 @@ export default function ProductList({
   weightOptions,
   onSelectWeight,
   onAddToCart,
+  addingProductId,
   onOpenLightbox,
 }: {
   products: Product[];
@@ -19,6 +20,8 @@ export default function ProductList({
   weightOptions: number[];
   onSelectWeight: (productId: string, weight: number) => void;
   onAddToCart: (productId: string) => void;
+  /** 正在向伺服器確認、尚未加入購物車的商品 id */
+  addingProductId: string | null;
   onOpenLightbox: (src: string) => void;
 }) {
   const list = products.filter((p) => p.region === currentRegion);
@@ -42,6 +45,8 @@ export default function ProductList({
             weightOptions={weightOptions}
             onSelectWeight={onSelectWeight}
             onAddToCart={onAddToCart}
+            adding={addingProductId === product.id}
+            addDisabled={addingProductId !== null}
             onOpenLightbox={onOpenLightbox}
           />
         );
