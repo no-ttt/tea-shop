@@ -16,6 +16,15 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
+  // 後台上傳的圖片（商品圖、分區底圖、LINE Pay QR Code）。bucket 不開公開存取，
+  // 一律經由 app/uploads/[...key]/route.ts 讀出。binding 不能取名 IMAGES：
+  // @opennextjs/cloudflare 保留這個名稱給 Cloudflare Images（next/image 最佳化）使用。
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "qiwish-images"
+    }
+  ],
   // RESEND_API_KEY／EMAIL_FROM／ADMIN_PASSWORD／SESSION_SECRET 刻意不宣告在這裡的 "vars"：
   // Cloudflare 不允許同一個 binding 名稱同時是 var 又是 secret，且每次 `wrangler deploy`
   // 都會用這裡的 vars 覆蓋掉正式環境已用 `wrangler secret put` 設定的 secrets（曾經因此

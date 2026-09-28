@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { SiteSettings } from "@/lib/admin-data";
+import ImageUploadButton from "./ImageUploadButton";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
 
@@ -180,18 +181,16 @@ export default function SettingsAdminView({
         <div className={styles.squarePreview} style={{ marginBottom: 16 }}>
           <Image src={qrImage} alt="目前使用中的 LINE Pay 收款 QR Code" fill sizes="140px" />
         </div>
-        <div className={styles.field}>
-          <label>圖片網址</label>
-          <input
-            className={styles.input}
-            placeholder="https://... 或 /images/..."
-            value={qrImage}
-            onChange={(e) => {
-              setQrImage(e.target.value);
-              clearSavedMessage();
-            }}
-          />
-        </div>
+        <ImageUploadButton
+          folder="branding"
+          label="更換 QR Code 圖片"
+          compress={false}
+          onUploaded={(url) => {
+            setQrImage(url);
+            clearSavedMessage();
+          }}
+        />
+        <p className={styles.helpText}>上傳後記得按右上角「儲存變更」才會生效。</p>
       </div>
 
       <div className={styles.section}>

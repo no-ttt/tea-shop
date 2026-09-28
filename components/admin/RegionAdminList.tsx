@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { Region } from "@/lib/types";
+import ImageUploadButton from "./ImageUploadButton";
 import ConfirmDialog from "./ConfirmDialog";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
@@ -229,31 +230,31 @@ function RegionForm({
       </div>
 
       <div className={styles.field}>
-        <label>1. 電腦版底圖網址（寬螢幕用）</label>
-        {region && (
+        <label>1. 電腦版底圖（寬螢幕用）</label>
+        {bgImage && (
           <div className={styles.bgPreview} style={{ marginBottom: 6 }}>
-            <Image src={region.bgImage} alt={`${region.title} 桌機底圖目前預覽`} fill sizes="480px" />
+            <Image src={bgImage} alt="桌機底圖預覽" fill sizes="480px" />
           </div>
         )}
-        <input
-          className={styles.input}
-          placeholder="https://... 或 /images/..."
-          value={bgImage}
-          onChange={(e) => setBgImage(e.target.value)}
+        <ImageUploadButton
+          folder="regions"
+          onUploaded={setBgImage}
+          label={bgImage ? "更換圖片" : "上傳圖片"}
+          disabled={saving}
         />
       </div>
       <div className={styles.field}>
-        <label>2. 手機版底圖網址（直式螢幕用）</label>
-        {region && (
+        <label>2. 手機版底圖（直式螢幕用）</label>
+        {bgImageMobile && (
           <div className={styles.bgPreview} style={{ marginBottom: 6 }}>
-            <Image src={region.bgImageMobile} alt={`${region.title} 手機底圖目前預覽`} fill sizes="480px" />
+            <Image src={bgImageMobile} alt="手機底圖預覽" fill sizes="480px" />
           </div>
         )}
-        <input
-          className={styles.input}
-          placeholder="https://... 或 /images/..."
-          value={bgImageMobile}
-          onChange={(e) => setBgImageMobile(e.target.value)}
+        <ImageUploadButton
+          folder="regions"
+          onUploaded={setBgImageMobile}
+          label={bgImageMobile ? "更換圖片" : "上傳圖片"}
+          disabled={saving}
         />
       </div>
 

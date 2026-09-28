@@ -4,6 +4,7 @@
 interface __BaseEnv_Env {
 	DB: D1Database;
 	ASSETS: Fetcher;
+	UPLOADS: R2Bucket;
 	ADMIN_PASSWORD: string;
 	SESSION_SECRET: string;
 	RESEND_API_KEY: string;

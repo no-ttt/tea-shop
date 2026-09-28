@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { Product, ProductStatus, Region } from "@/lib/types";
+import ImageUploadButton from "./ImageUploadButton";
 import ConfirmDialog from "./ConfirmDialog";
 import CustomSelect from "../CustomSelect";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
@@ -434,7 +435,6 @@ function ProductForm({
   const [images, setImages] = useState<{ url: string; imageId?: number }[]>(
     (product?.images ?? []).map((url) => ({ url })),
   );
-  const [newImageUrl, setNewImageUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -469,9 +469,7 @@ function ProductForm({
     return { "30": p30 ?? 0, "80": p80 ?? 0, "150": p150 ?? 0 };
   };
 
-  const handleAddImage = async () => {
-    const url = newImageUrl.trim();
-    if (!url) return;
+  const handleAddImage = async (url: string) => {
     if (images.length >= 4) {
       setError("每個商品最多 4 張圖片");
       return;
@@ -479,7 +477,6 @@ function ProductForm({
     if (!product) {
       // 新商品尚未存在於資料庫，圖片先暫存在本地，商品建立成功後再一併送出
       setImages((prev) => [...prev, { url }]);
-      setNewImageUrl("");
       return;
     }
     setSaving(true);
@@ -497,7 +494,6 @@ function ProductForm({
       }
       const data = (await res.json()) as { images: { id: number; url: string }[] };
       setImages(data.images.map((img) => ({ url: img.url, imageId: img.id })));
-      setNewImageUrl("");
       setSaving(false);
     } catch {
       setError("新增圖片失敗，請確認網路連線");
@@ -655,7 +651,7 @@ function ProductForm({
       </div>
 
       <div className={styles.field}>
-        <label>商品圖片網址（最多 4 張）</label>
+        <label>商品圖片（最多 4 張）</label>
         <div className={styles.thumbRow}>
           {images.map((img, idx) => (
             <div key={`${img.url}-${idx}`} className={styles.thumb}>
@@ -672,17 +668,8 @@ function ProductForm({
           ))}
         </div>
         {images.length < 4 && (
-          <div className={styles.inlineRow} style={{ marginTop: 8 }}>
-            <input
-              className={styles.input}
-              placeholder="https://..."
-              value={newImageUrl}
-              onChange={(e) => setNewImageUrl(e.target.value)}
-              style={{ flex: 1, minWidth: 160 }}
-            />
-            <button type="button" className={styles.buttonSecondary} onClick={handleAddImage} disabled={saving}>
-              新增圖片
-            </button>
+          <div style={{ marginTop: 8 }}>
+            <ImageUploadButton folder="products" onUploaded={handleAddImage} label="新增圖片" disabled={saving} />
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@
 
 `app/admin/**` 已全面串接真正的後端：Cloudflare D1 資料庫 + `lib/admin-data.ts` + `app/api/admin/**` 提供完整 CRUD（產品、產區、組合優惠、客戶欄位、產品狀態、訂單狀態、系統設定），單一管理密碼 + HMAC 簽章 cookie 登入驗證（`proxy.ts` 保護 `/admin/**` 與 `/api/admin/**`，支援後台修改密碼、資料庫覆蓋環境變數預設值），字體大小/顏色與運費規則/通知信箱改為 `site_settings` 資料表儲存、後台可編輯，前台透過 `app/layout.tsx` 動態注入 CSS 變數套用。
 
-**維持不做**：原網站「匯出網頁」分頁（資料庫架構下沒有對應需求）；購買紀錄的 Excel 匯出（原本靠 Google Sheets，這次改直接查 D1，Excel 匯出視未來需要再評估）；產品圖片改為後台輸入網址而非檔案上傳（R2 物件儲存需要綁定付款方式才能啟用，即使免費額度內不扣款，已決定不綁卡）。
+**維持不做**：原網站「匯出網頁」分頁（資料庫架構下沒有對應需求）；購買紀錄的 Excel 匯出（原本靠 Google Sheets，這次改直接查 D1，Excel 匯出視未來需要再評估）。
 
 ## 2. Formspree／Google Apps Script 真實串接 —— 已完成（改用 Resend + D1）
 
