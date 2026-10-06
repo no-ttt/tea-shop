@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "qiwish-nextjs",
+  // 業主的 Cloudflare 帳戶（Qi.wish.maker）。登入的帳號同時能存取多個帳戶時，
+  // wrangler 在非互動模式下無法自行選擇，部署/遠端 migration 會失敗，所以明確指定。
+  "account_id": "985157e1a45e6a773cde42803a0ce8f4",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-14",
   "compatibility_flags": ["nodejs_compat"],
