@@ -382,6 +382,12 @@ function OrderDetail({ order }: { order: AdminOrder }) {
         </p>
       )}
 
+      {order.note && (
+        <p className={styles.helpText} style={{ marginTop: 4, whiteSpace: "pre-line" }}>
+          訂單備註：{order.note}
+        </p>
+      )}
+
       <div className={styles.tableWrap} style={{ marginTop: 12 }}>
         <table className={styles.table}>
           <thead>

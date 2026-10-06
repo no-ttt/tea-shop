@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import type { Region } from "@/lib/types";
+import { REGION_DESCRIPTION_MAX_LENGTH, type Region } from "@/lib/types";
 import ImageUploadButton from "./ImageUploadButton";
 import ConfirmDialog from "./ConfirmDialog";
+import { useDragReorder } from "./useDragReorder";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
 
@@ -41,6 +42,14 @@ export default function RegionAdminList({ regions }: { regions: Region[] }) {
   return (
     <div>
       <h1 className={styles.pageTitle}>分區與底圖</h1>
+
+      {/* key 綁定目前資料庫裡的順序與名稱：儲存/新增/刪除後 router.refresh() 拿到新資料時
+          直接重新掛載，重設面板內的編輯狀態（不用 effect 同步 props → state）。 */}
+      <RegionOrderPanel
+        key={regions.map((r) => `${r.id}:${r.title}`).join("|")}
+        regions={regions}
+        onSaved={() => router.refresh()}
+      />
 
       <div className={styles.section}>
         <div className={styles.toolbar}>
@@ -94,6 +103,107 @@ export default function RegionAdminList({ regions }: { regions: Region[] }) {
   );
 }
 
+function RegionOrderPanel({ regions, onSaved }: { regions: Region[]; onSaved: () => void }) {
+  const [items, setItems] = useState(() => regions.map((r) => ({ id: r.id, title: r.title })));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { draggingId, rowRef, handleProps } = useDragReorder(
+    items.map((item) => item.id),
+    (ids) => setItems(ids.map((id) => items.find((item) => item.id === id)!)),
+  );
+
+  const dirty = items.some((item, i) => item.id !== regions[i]?.id || item.title !== regions[i]?.title);
+
+  const handleSave = async () => {
+    if (items.some((item) => item.title.trim() === "")) {
+      setError("分區名稱不可為空");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/regions/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) {
+        setError(await parseErrorMessage(res, "儲存失敗"));
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+      onSaved();
+    } catch {
+      setError("儲存失敗，請確認網路連線");
+      setSaving(false);
+    }
+  };
+
+  if (regions.length === 0) return null;
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>分區順序與名稱</h3>
+      <p className={styles.helpText} style={{ marginBottom: 10 }}>
+        名稱即前台分頁上顯示的文字；按住左側 ⋮⋮ 上下拖移可調整前台分頁的排列順序，改完按「儲存」一次套用。
+      </p>
+
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          ref={rowRef(item.id)}
+          className={`${styles.orderRow} ${draggingId === item.id ? styles.orderRowDragging : ""}`}
+        >
+          <button
+            type="button"
+            className={styles.dragHandle}
+            aria-label={`拖移調整「${item.title}」的順序（也可用鍵盤上下鍵）`}
+            disabled={saving}
+            {...handleProps(item.id)}
+          >
+            ⋮⋮
+          </button>
+          <span className={styles.orderIndex}>{index + 1}</span>
+          <input
+            className={`${styles.input} ${styles.orderInput}`}
+            value={item.title}
+            disabled={saving}
+            onChange={(e) =>
+              setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, title: e.target.value } : p)))
+            }
+          />
+        </div>
+      ))}
+
+      {error && (
+        <p className={styles.helpText} style={{ color: "#c0392b" }}>
+          {error}
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button type="button" className={styles.button} onClick={handleSave} disabled={saving || !dirty}>
+          {saving ? "儲存中…" : "儲存順序與名稱"}
+        </button>
+        {dirty && (
+          <button
+            type="button"
+            className={styles.buttonSecondary}
+            disabled={saving}
+            onClick={() => {
+              setItems(regions.map((r) => ({ id: r.id, title: r.title })));
+              setError(null);
+            }}
+          >
+            還原
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RegionCard({
   region,
   onRequestDelete,
@@ -128,6 +238,11 @@ function RegionCard({
           <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>
             {region.subtitle}
           </div>
+          {region.description && (
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6, whiteSpace: "pre-line", lineHeight: 1.7 }}>
+              {region.description}
+            </div>
+          )}
           {region.note && (
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{region.note}</div>
           )}
@@ -171,6 +286,7 @@ function RegionForm({
   const [title, setTitle] = useState(region?.title ?? "");
   const [subtitle, setSubtitle] = useState(region?.subtitle ?? "");
   const [note, setNote] = useState(region?.note ?? "");
+  const [description, setDescription] = useState(region?.description ?? "");
   const [bgImage, setBgImage] = useState(region?.bgImage ?? "");
   const [bgImageMobile, setBgImageMobile] = useState(region?.bgImageMobile ?? "");
   const [saving, setSaving] = useState(false);
@@ -184,7 +300,7 @@ function RegionForm({
         ? await fetch(`/api/admin/regions/${region.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, subtitle, note, bgImage, bgImageMobile }),
+            body: JSON.stringify({ title, subtitle, note, description, bgImage, bgImageMobile }),
           })
         : await fetch("/api/admin/regions", {
             method: "POST",
@@ -193,6 +309,7 @@ function RegionForm({
               title,
               subtitle,
               note,
+              description,
               bgPos: "center",
               bgImage,
               bgImageMobile,
@@ -225,7 +342,19 @@ function RegionForm({
       </div>
 
       <div className={styles.field}>
-        <label>備註</label>
+        <label>分頁介紹（選填，顯示在首頁副標題下方，可換行）</label>
+        <textarea
+          className={styles.textarea}
+          rows={4}
+          maxLength={REGION_DESCRIPTION_MAX_LENGTH}
+          placeholder="介紹這個分頁的茶款特色，例如產區風土、製茶工藝…"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      <div className={styles.field}>
+        <label>備註（選填，以強調色顯示的一行短句，例如「此系列三入一組享組合價」）</label>
         <input className={styles.input} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
 

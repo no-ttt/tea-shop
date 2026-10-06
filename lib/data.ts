@@ -27,7 +27,10 @@ import type {
   CheckoutSettingsChanges,
   OrderPayload,
   OrderConfirmation,
+  PaymentMethod,
+  ShippingMethod,
 } from "./types";
+import { validateOrderForm } from "./order-validation";
 
 export async function getRegions(): Promise<Region[]> {
   const db = await getDb();
@@ -37,6 +40,7 @@ export async function getRegions(): Promise<Region[]> {
     title: r.title,
     subtitle: r.subtitle,
     note: r.note,
+    description: r.description,
     bgPos: r.bgPos,
     bgImage: r.bgImage,
     bgImageMobile: r.bgImageMobile,
@@ -81,6 +85,10 @@ export async function getProducts(region?: string): Promise<Product[]> {
       prices: hasPrices
         ? { "30": p.price30 as number, "80": p.price80 as number, "150": p.price150 as number }
         : null,
+      customOption:
+        p.customOptionLabel && p.customOptionPrice !== null
+          ? { label: p.customOptionLabel, price: p.customOptionPrice }
+          : null,
       note: p.note,
       statusId: p.statusId,
       images: imagesByProduct.get(p.id) ?? [],
@@ -150,6 +158,13 @@ export interface SiteSettings {
     colorTitle: string;
     colorItem: string;
     colorPrice: string;
+    /** 首頁「會員資格說明」的字級倍率（基準 11.5px） */
+    scaleMemberNote: number;
+  };
+  /** 首頁可由後台編輯的文字內容 */
+  content: {
+    /** 首頁標題下方的會員資格說明；可換行，空字串代表不顯示這個區塊 */
+    memberNote: string;
   };
   shipping: {
     freeThreshold: number;
@@ -173,6 +188,13 @@ const SITE_SETTINGS_DEFAULTS: SiteSettings = {
     colorTitle: "#f3ede1",
     colorItem: "#f3ede1",
     colorPrice: "#c98a4b",
+    scaleMemberNote: 1,
+  },
+  content: {
+    // 原網站寫死在首頁的文字，資料庫沒有這筆設定時沿用
+    memberNote:
+      "經典會員（Member）無購買數量限制；欲加入 VIP 會員，初次入會需購買「2 斤」茶款（不限茶）。\n" +
+      "非 VIP 會員，價目表傳出後，有效期以傳出日計算，三日內有效。",
   },
   shipping: {
     freeThreshold: 3000,
@@ -209,6 +231,10 @@ export async function getSiteSettings(): Promise<SiteSettings> {
       colorTitle: str("theme.colorTitle", SITE_SETTINGS_DEFAULTS.theme.colorTitle),
       colorItem: str("theme.colorItem", SITE_SETTINGS_DEFAULTS.theme.colorItem),
       colorPrice: str("theme.colorPrice", SITE_SETTINGS_DEFAULTS.theme.colorPrice),
+      scaleMemberNote: num("theme.scaleMemberNote", SITE_SETTINGS_DEFAULTS.theme.scaleMemberNote),
+    },
+    content: {
+      memberNote: str("content.memberNote", SITE_SETTINGS_DEFAULTS.content.memberNote),
     },
     shipping: {
       freeThreshold: num("shipping.freeThreshold", SITE_SETTINGS_DEFAULTS.shipping.freeThreshold),
@@ -328,8 +354,18 @@ async function resolveCart(cart: CartLine[]): Promise<{ issues: CartIssue[]; lin
       issues.push({ ...base, kind: "unavailable", reason: status?.label ?? "目前無法購買" });
       continue;
     }
-    const currentPrice =
-      item.weight === 30 ? product.price30 : item.weight === 80 ? product.price80 : item.weight === 150 ? product.price150 : null;
+    const customLabel = product.customOptionLabel;
+    const currentPrice = item.custom
+      ? customLabel
+        ? product.customOptionPrice
+        : null
+      : item.weight === 30
+        ? product.price30
+        : item.weight === 80
+          ? product.price80
+          : item.weight === 150
+            ? product.price150
+            : null;
     if (currentPrice === null) {
       issues.push({ ...base, kind: "unavailable", reason: "此規格目前無法購買" });
       continue;
@@ -342,9 +378,9 @@ async function resolveCart(cart: CartLine[]): Promise<{ issues: CartIssue[]; lin
       key: item.key,
       productId: product.id,
       name: product.name.replace(/\n/g, " "),
-      detail: `${regionTitleMap.get(product.regionId) ?? product.regionId}／${item.weight}g`,
+      detail: `${regionTitleMap.get(product.regionId) ?? product.regionId}／${item.custom ? customLabel : `${item.weight}g`}`,
       price: currentPrice,
-      weight: item.weight,
+      ...(item.custom ? { custom: true } : { weight: item.weight }),
     });
   }
   return { issues, lines };
@@ -389,7 +425,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
       typeof item.detail !== "string" ||
       typeof item.price !== "number" ||
       !Number.isFinite(item.price) ||
-      typeof item.weight !== "number"
+      // 每一筆要嘛是克數（weight），要嘛是自訂選項（custom: true）
+      (item.custom === true ? item.weight !== undefined : typeof item.weight !== "number")
     ) {
       throw new OrderValidationError("購物車資料格式錯誤");
     }
@@ -408,86 +445,18 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
   }
   const qualifiesForGroup = totals.qualifiesForFreeShipping;
 
-  // lineId 不放在這個集合裡：它已經在下方迴圈最前面被單獨攔截並 continue，
-  // 永遠不會走到這個集合的判斷；且下方三元運算鏈本來就沒有處理 lineId 的分支，
-  // 若誤放進來、日後又有人動了前面的 continue 守衛，會悄悄退回 undefined 重現舊 bug。
-  const BUILTIN_FIELD_IDS = new Set(["name", "phone", "email", "zip", "address"]);
+  const formError = validateOrderForm(payload, customerFields, qualifiesForGroup);
+  if (formError) throw new OrderValidationError(formError.message, formError.field);
+  // validateOrderForm 已確認兩者都有選；這裡收窄型別給下方寫入 DB 用（欄位是 NOT NULL）。
+  const shippingMethod = payload.shippingMethod as ShippingMethod;
+  const paymentMethod = payload.paymentMethod as PaymentMethod;
   const customFieldValues = payload.customFieldValues ?? {};
-
-  for (const field of customerFields) {
-    if (field.id === "lineId") {
-      if (qualifiesForGroup && !payload.customer.lineId) {
-        throw new OrderValidationError(`請填寫${field.label}`, "cf_lineId");
-      }
-      continue;
-    }
-
-    if (field.id === "birthday") {
-      if (field.required && !payload.birthday) {
-        throw new OrderValidationError(`請填寫${field.label}`, "cf_birthday");
-      }
-      continue;
-    }
-
-    // 郵遞區號/地址只在選「郵寄地址」時需要；還沒選取貨方式時也先跳過，交給下方的「請選擇取貨方式」提示，
-    // 避免客人還沒選就先被要求填地址。
-    if (payload.shippingMethod !== "mail" && (field.id === "zip" || field.id === "address")) continue;
-
-    // 內建欄位（builtin: true）維持型別安全的明確屬性存取；
-    // 店家在後台新增的自訂欄位（builtin: false）則從 customFieldValues 依欄位 id 查表取值，
-    // 而不是只認得寫死的 5 個內建欄位 id（原本漏接自訂欄位會讓 value 永遠是 undefined，卡死結帳）。
-    const value = BUILTIN_FIELD_IDS.has(field.id)
-      ? field.id === "name"
-        ? payload.customer.name
-        : field.id === "phone"
-          ? payload.customer.phone
-          : field.id === "email"
-            ? payload.customer.email
-            : field.id === "zip"
-              ? payload.customer.zip
-              : field.id === "address"
-                ? payload.customer.address
-                : undefined
-      : customFieldValues[field.id];
-
-    if (field.required && !value) {
-      throw new OrderValidationError(`請填寫${field.label}`, `cf_${field.id}`);
-    }
-
-    if (field.type === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      throw new OrderValidationError(`請填寫正確格式的${field.label}`, `cf_${field.id}`);
-    }
-  }
-
-  if (payload.shippingMethod !== "mail" && payload.shippingMethod !== "cvs") {
-    throw new OrderValidationError("請選擇取貨方式");
-  }
-
-  if (payload.shippingMethod === "cvs" && !payload.cvsStoreName) {
-    throw new OrderValidationError("請填寫超商門市名稱", "cvsStoreName");
-  }
-
-  if (payload.isGift && !payload.giftName) {
-    throw new OrderValidationError("已勾選送禮，請填寫收禮人姓名", "custGiftName");
-  }
-
-  if (payload.paymentMethod !== "bank" && payload.paymentMethod !== "linepay") {
-    throw new OrderValidationError("請選擇付款方式");
-  }
-
-  if (payload.paymentMethod === "bank" && !payload.bankTransferLast5) {
-    throw new OrderValidationError("請先完成匯款資訊確認（填寫匯款後五碼）");
-  }
-
-  if (payload.paymentMethod === "linepay" && !payload.linePayLast3) {
-    throw new OrderValidationError("請先掃描 QR Code 完成付款，並確認付款狀態");
-  }
 
   // QW + 毫秒時間戳(base36) + 2 碼隨機碼：短、人眼可讀，且遞增時間戳讓同時間訂單幾乎不重複。
   const orderId = `QW${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`.toUpperCase();
   const db = await getDb();
 
-  const isCVS = payload.shippingMethod === "cvs";
+  const isCVS = shippingMethod === "cvs";
   const orderRow = {
     id: orderId,
     status: "pending_payment" as const,
@@ -500,12 +469,13 @@ export async function createOrder(payload: OrderPayload): Promise<OrderConfirmat
     birthday: payload.birthday ?? null,
     isGift: payload.isGift,
     giftName: payload.giftName ?? null,
-    shippingMethod: payload.shippingMethod,
+    shippingMethod,
     cvsType: payload.cvsType ?? null,
     cvsStoreName: payload.cvsStoreName ?? null,
-    paymentMethod: payload.paymentMethod,
+    paymentMethod,
     bankTransferLast5: payload.bankTransferLast5 ?? null,
     linePayLast3: payload.linePayLast3 ?? null,
+    note: payload.note?.trim() || null,
     subtotal: totals.subtotal,
     bundleDiscountAmount: totals.bundleDiscountAmount,
     bundleName: totals.bundleName,

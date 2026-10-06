@@ -10,11 +10,31 @@
   cursor: zoom-out;
 }
 
-.imageWrap {
+/* 可視範圍：一次只露出一張，超出的左右張藏起來 */
+.viewport {
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   cursor: default;
+  /* 水平手勢交給程式處理（左右滑換張），保留垂直捲動與雙指縮放 */
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 所有照片橫排，用 translateX 切換；拖曳中 inline style 會關掉 transition 讓圖片跟手 */
+.track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
+}
+
+.slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
 }
 
 .close {
@@ -30,4 +50,61 @@
   font-size: 18px;
   cursor: pointer;
   z-index: 96;
+}
+
+.arrow {
+  position: fixed;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  padding-bottom: 3px;
+  cursor: pointer;
+  z-index: 96;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.arrow:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.arrowPrev {
+  left: 14px;
+}
+
+.arrowNext {
+  right: 14px;
+}
+
+.counter {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  cursor: default;
+  z-index: 96;
+}
+
+/* 手機用滑的就好，箭頭會擋住照片 */
+@media (max-width: 479px) {
+  .arrow {
+    display: none;
+  }
 }

@@ -125,6 +125,12 @@ export default function OrderCompleteOverlay({
           {extra.paymentMethod === "bank"
             ? `（後五碼：${extra.bankTransferLast5}）`
             : `（客人回報電話後三碼：${extra.linePayLast3}）`}
+          {extra.note && (
+            <>
+              <br />
+              <span style={{ whiteSpace: "pre-line" }}>訂單備註：{extra.note}</span>
+            </>
+          )}
         </div>
 
         <button type="button" className={shared.button} style={{ marginTop: 22 }} onClick={onBackToShop}>

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import type { Product, ProductStatus, Region } from "@/lib/types";
+import { CUSTOM_OPTION_LABEL_MAX_LENGTH, type Product, type ProductStatus, type Region } from "@/lib/types";
 import ImageUploadButton from "./ImageUploadButton";
 import ConfirmDialog from "./ConfirmDialog";
+import { useDragReorder } from "./useDragReorder";
 import CustomSelect from "../CustomSelect";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
@@ -29,10 +30,64 @@ export default function ProductAdminList({
 
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.id, s])), [statuses]);
 
-  const filtered = useMemo(
-    () => (regionFilter === "all" ? products : products.filter((p) => p.region === regionFilter)),
-    [products, regionFilter],
+  // 依分區分組（商品的 sortOrder 只在同一分區內有意義，前台也是一個分頁一組）。
+  // drafts：各分區尚未儲存的新順序（沒有該 key = 沒改動）；切換分區篩選時保留，儲存時一起送出。
+  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  const groups = useMemo(
+    () =>
+      regions.map((region) => {
+        const base = products.filter((p) => p.region === region.id);
+        const draft = drafts[region.id];
+        let ordered = base;
+        if (draft) {
+          const byId = new Map(base.map((p) => [p.id, p]));
+          ordered = [
+            ...draft.map((id) => byId.get(id)).filter((p): p is Product => !!p),
+            // 拖移後才新增的商品（不在 draft 裡）接在最後面
+            ...base.filter((p) => !draft.includes(p.id)),
+          ];
+        }
+        return { region, products: ordered, dirty: ordered.some((p, i) => p.id !== base[i]?.id) };
+      }),
+    [regions, products, drafts],
   );
+  const visibleGroups = regionFilter === "all" ? groups : groups.filter((g) => g.region.id === regionFilter);
+  const dirtyGroups = groups.filter((g) => g.dirty);
+  const canReorder = !editingId && !addingNew && !savingOrder;
+
+  const resetOrder = () => {
+    setDrafts({});
+    setOrderError(null);
+  };
+
+  const handleSaveOrder = async () => {
+    setSavingOrder(true);
+    setOrderError(null);
+    try {
+      for (const group of dirtyGroups) {
+        const res = await fetch("/api/admin/products/order", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ region: group.region.id, ids: group.products.map((p) => p.id) }),
+        });
+        if (!res.ok) {
+          setOrderError(`「${group.region.title}」${await parseErrorMessage(res, "儲存排序失敗")}`);
+          setSavingOrder(false);
+          router.refresh();
+          return;
+        }
+      }
+      setSavingOrder(false);
+      setDrafts({});
+      router.refresh();
+    } catch {
+      setOrderError("儲存排序失敗，請確認網路連線");
+      setSavingOrder(false);
+    }
+  };
 
   const deletingProduct = deletingId ? products.find((p) => p.id === deletingId) ?? null : null;
 
@@ -90,33 +145,95 @@ export default function ProductAdminList({
           </div>
         )}
 
-        {filtered.length === 0 && <div className={styles.emptyState}>此分區沒有商品</div>}
+        {products.length > 1 && (
+          <p className={styles.helpText} style={{ marginBottom: 10 }}>
+            按住商品左側的 ⋮⋮ 上下拖移，可調整商品在前台分頁裡的排列順序（只能在同一分區內移動），排好後按「儲存排序」。
+          </p>
+        )}
 
-        {filtered.map((product) =>
-          editingId === product.id ? (
-            <div key={product.id} className={`${styles.card} ${styles.cardEditing}`}>
-              <ProductForm
-                regions={regions}
-                statuses={statuses}
-                product={product}
-                onCancel={() => setEditingId(null)}
-                onSaved={() => {
-                  setEditingId(null);
-                  router.refresh();
-                }}
-              />
+        {dirtyGroups.length > 0 && (
+          <div className={styles.orderSaveBar}>
+            <span>
+              排序已變更，尚未儲存（
+              {dirtyGroups.map((g) => g.region.title).join("、")}）
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className={styles.button} onClick={handleSaveOrder} disabled={savingOrder}>
+                {savingOrder ? "儲存中…" : "儲存排序"}
+              </button>
+              <button type="button" className={styles.buttonSecondary} onClick={resetOrder} disabled={savingOrder}>
+                還原
+              </button>
             </div>
-          ) : (
-            <ProductSummaryRow
-              key={product.id}
-              product={product}
-              status={statusMap.get(product.statusId)}
-              onEdit={() => setEditingId(product.id)}
-              onRequestDelete={() => {
-                setDeleteError(null);
-                setDeletingId(product.id);
-              }}
-            />
+          </div>
+        )}
+        {orderError && (
+          <p className={styles.helpText} style={{ color: "#c0392b" }}>
+            {orderError}
+          </p>
+        )}
+
+        {visibleGroups.every((g) => g.products.length === 0) && <div className={styles.emptyState}>此分區沒有商品</div>}
+
+        {visibleGroups.map((group) =>
+          group.products.length === 0 ? null : (
+            <DragGroup
+              key={group.region.id}
+              ids={group.products.map((p) => p.id)}
+              onReorder={(ids) => setDrafts((prev) => ({ ...prev, [group.region.id]: ids }))}
+            >
+              {({ draggingId, rowRef, handleProps }) => (
+                <div className={styles.productGroup}>
+                  {regionFilter === "all" && (
+                    <div className={styles.productGroupTitle}>
+                      {group.region.title}
+                      <span>{group.products.length} 項</span>
+                    </div>
+                  )}
+                  {group.products.map((product) =>
+                    editingId === product.id ? (
+                      <div key={product.id} className={`${styles.card} ${styles.cardEditing}`}>
+                        <ProductForm
+                          regions={regions}
+                          statuses={statuses}
+                          product={product}
+                          onCancel={() => setEditingId(null)}
+                          onSaved={() => {
+                            setEditingId(null);
+                            router.refresh();
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <ProductSummaryRow
+                        key={product.id}
+                        rowRef={rowRef(product.id)}
+                        dragging={draggingId === product.id}
+                        dragHandle={
+                          canReorder && group.products.length > 1 ? (
+                            <button
+                              type="button"
+                              className={styles.dragHandle}
+                              aria-label={`拖移調整「${product.name.replace(/\n/g, " ")}」的順序（也可用鍵盤上下鍵）`}
+                              {...handleProps(product.id)}
+                            >
+                              ⋮⋮
+                            </button>
+                          ) : null
+                        }
+                        product={product}
+                        status={statusMap.get(product.statusId)}
+                        onEdit={() => setEditingId(product.id)}
+                        onRequestDelete={() => {
+                          setDeleteError(null);
+                          setDeletingId(product.id);
+                        }}
+                      />
+                    ),
+                  )}
+                </div>
+              )}
+            </DragGroup>
           ),
         )}
       </div>
@@ -139,6 +256,19 @@ export default function ProductAdminList({
       )}
     </div>
   );
+}
+
+/** 每個分區各自一組拖移（只能在組內移動），用 render prop 把 useDragReorder 的結果交給呼叫端畫列表。 */
+function DragGroup({
+  ids,
+  onReorder,
+  children,
+}: {
+  ids: string[];
+  onReorder: (ids: string[]) => void;
+  children: (drag: ReturnType<typeof useDragReorder>) => React.ReactNode;
+}) {
+  return <>{children(useDragReorder(ids, onReorder))}</>;
 }
 
 function ProductStatusManager({
@@ -365,49 +495,66 @@ function ProductSummaryRow({
   status,
   onEdit,
   onRequestDelete,
+  rowRef,
+  dragging,
+  dragHandle,
 }: {
   product: Product;
   status: ProductStatus | undefined;
   onEdit: () => void;
   onRequestDelete: () => void;
+  rowRef?: (el: HTMLElement | null) => void;
+  dragging?: boolean;
+  dragHandle?: React.ReactNode;
 }) {
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
-        <div>
-          <div style={{ fontWeight: 700, whiteSpace: "pre-line" }}>{product.name}</div>
-          <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 4 }}>
-            {product.region}
-            {product.note ? ` ・ ${product.note}` : ""}
-          </div>
-          <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-            {status && <span className={styles.tag}>{status.label}</span>}
-            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              {product.prices
-                ? `30g $${product.prices["30"]} ／ 80g $${product.prices["80"]} ／ 150g $${product.prices["150"]}`
-                : "尚未設定價格"}
-            </span>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button type="button" className={styles.buttonSecondary} onClick={onEdit}>
-            編輯
-          </button>
-          <button type="button" className={styles.buttonDanger} onClick={onRequestDelete}>
-            刪除
-          </button>
-        </div>
-      </div>
-
-      {product.images.length > 0 && (
-        <div className={styles.thumbRow}>
-          {product.images.map((src) => (
-            <div key={src} className={styles.thumb}>
-              <Image src={src} alt={product.name} fill sizes="64px" />
+    <div
+      ref={rowRef}
+      className={`${styles.card} ${dragHandle ? styles.cardWithHandle : ""} ${dragging ? styles.cardDragging : ""}`}
+    >
+      {/* 把手獨立一欄，標題與下方縮圖都在右側內容欄，左緣才會對齊 */}
+      {dragHandle}
+      <div className={styles.cardBody}>
+        <div className={styles.cardHeader}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, whiteSpace: "pre-line" }}>{product.name}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 4 }}>
+              {product.region}
+              {product.note ? ` ・ ${product.note}` : ""}
             </div>
-          ))}
+            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+              {status && <span className={styles.tag}>{status.label}</span>}
+              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                {[
+                  product.prices &&
+                    `30g $${product.prices["30"]} ／ 80g $${product.prices["80"]} ／ 150g $${product.prices["150"]}`,
+                  product.customOption && `${product.customOption.label} $${product.customOption.price}`,
+                ]
+                  .filter(Boolean)
+                  .join(" ／ ") || "尚未設定價格"}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <button type="button" className={styles.buttonSecondary} onClick={onEdit}>
+              編輯
+            </button>
+            <button type="button" className={styles.buttonDanger} onClick={onRequestDelete}>
+              刪除
+            </button>
+          </div>
         </div>
-      )}
+
+        {product.images.length > 0 && (
+          <div className={styles.thumbRow}>
+            {product.images.map((src, i) => (
+              <div key={`${i}-${src}`} className={styles.thumb}>
+                <Image src={src} alt={product.name} fill sizes="64px" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -432,11 +579,63 @@ function ProductForm({
   const [price30, setPrice30] = useState(product?.prices?.["30"]?.toString() ?? "");
   const [price80, setPrice80] = useState(product?.prices?.["80"]?.toString() ?? "");
   const [price150, setPrice150] = useState(product?.prices?.["150"]?.toString() ?? "");
+  const [customLabel, setCustomLabel] = useState(product?.customOption?.label ?? "");
+  const [customPrice, setCustomPrice] = useState(product?.customOption?.price?.toString() ?? "");
   const [images, setImages] = useState<{ url: string; imageId?: number }[]>(
     (product?.images ?? []).map((url) => ({ url })),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 圖片拖移排序：拖移只調整畫面上的順序，按「儲存變更」時才存回伺服器（按「取消」則不套用）。
+  // 新商品還沒存在資料庫，排好的順序會在建立商品時依序上傳。
+  const imageKey = (img: { url: string; imageId?: number }) =>
+    img.imageId !== undefined ? `id-${img.imageId}` : `url-${img.url}`;
+  // 伺服器目前存的圖片順序，用來判斷畫面上的順序是否有未儲存的變更
+  const [serverImageIds, setServerImageIds] = useState<number[]>([]);
+  // 新增／刪除圖片當下就已存進資料庫，但仍算「有變更」：讓「儲存變更」可以按，按下後關閉表單並更新清單上的縮圖
+  const [imagesAddedOrRemoved, setImagesAddedOrRemoved] = useState(false);
+  // 圖片還在載入（尚無 imageId）時不算變更，避免一打開編輯就誤判成已修改
+  const imageOrderDirty =
+    !!product &&
+    images.every((img) => img.imageId !== undefined) &&
+    images.map((img) => img.imageId).join(",") !== serverImageIds.join(",");
+
+  // 編輯既有商品時，有改到內容（含圖片順序）才能按「儲存變更」；新增商品不受限
+  const formDirty =
+    !product ||
+    imageOrderDirty ||
+    imagesAddedOrRemoved ||
+    name !== product.name ||
+    region !== product.region ||
+    statusId !== product.statusId ||
+    note !== (product.note ?? "") ||
+    price30 !== (product.prices?.["30"]?.toString() ?? "") ||
+    price80 !== (product.prices?.["80"]?.toString() ?? "") ||
+    price150 !== (product.prices?.["150"]?.toString() ?? "") ||
+    customLabel !== (product.customOption?.label ?? "") ||
+    customPrice !== (product.customOption?.price?.toString() ?? "");
+
+  // 套用伺服器回傳的圖片清單（載入／新增／刪除後），但保留畫面上尚未儲存的排序：
+  // 原本就有的圖片維持目前順序，新增的圖片接在最後面
+  const applyServerImages = (serverImages: { id: number; url: string }[]) => {
+    setServerImageIds(serverImages.map((img) => img.id));
+    setImages((prev) => {
+      const byId = new Map(serverImages.map((img) => [img.id, img]));
+      const kept = prev
+        .filter((img) => img.imageId !== undefined && byId.has(img.imageId))
+        .map((img) => ({ url: byId.get(img.imageId!)!.url, imageId: img.imageId }));
+      const keptIds = new Set(kept.map((img) => img.imageId));
+      const added = serverImages.filter((img) => !keptIds.has(img.id)).map((img) => ({ url: img.url, imageId: img.id }));
+      return [...kept, ...added];
+    });
+  };
+
+  const imageDrag = useDragReorder(
+    images.map(imageKey),
+    (keys) => setImages(keys.map((k) => images.find((img) => imageKey(img) === k)!)),
+    { axis: "x" },
+  );
 
   useEffect(() => {
     if (!product) return;
@@ -445,10 +644,10 @@ function ProductForm({
       try {
         const res = await fetch(`/api/admin/products/${product.id}/images`);
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { images: { id: number; url: string }[] };
-        if (!cancelled) {
-          setImages(data.images.map((img) => ({ url: img.url, imageId: img.id })));
-        }
+        const data = (await res.json()) as {
+          images: { id: number; url: string }[];
+        };
+        if (!cancelled) applyServerImages(data.images);
       } catch {
         // 讀取失敗時保留原本從 product.images 初始化的清單（無 imageId，刪除會退回本地移除）
       }
@@ -492,8 +691,11 @@ function ProductForm({
         setSaving(false);
         return;
       }
-      const data = (await res.json()) as { images: { id: number; url: string }[] };
-      setImages(data.images.map((img) => ({ url: img.url, imageId: img.id })));
+      const data = (await res.json()) as {
+        images: { id: number; url: string }[];
+      };
+      applyServerImages(data.images);
+      setImagesAddedOrRemoved(true);
       setSaving(false);
     } catch {
       setError("新增圖片失敗，請確認網路連線");
@@ -519,8 +721,11 @@ function ProductForm({
         setSaving(false);
         return;
       }
-      const data = (await res.json()) as { images: { id: number; url: string }[] };
-      setImages(data.images.map((img) => ({ url: img.url, imageId: img.id })));
+      const data = (await res.json()) as {
+        images: { id: number; url: string }[];
+      };
+      applyServerImages(data.images);
+      setImagesAddedOrRemoved(true);
       setSaving(false);
     } catch {
       setError("刪除圖片失敗，請確認網路連線");
@@ -532,12 +737,38 @@ function ProductForm({
     setSaving(true);
     setError(null);
     try {
+      // 圖片順序先存：失敗的話商品資料也還沒動，不會只存了一半
+      if (product && imageOrderDirty) {
+        if (images.some((img) => img.imageId === undefined)) {
+          setError("圖片資料尚未載入完成，請重新整理頁面後再調整順序");
+          setSaving(false);
+          return;
+        }
+        const orderRes = await fetch(`/api/admin/products/${product.id}/images`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageIds: images.map((img) => img.imageId) }),
+        });
+        if (!orderRes.ok) {
+          setError(await parseErrorMessage(orderRes, "圖片順序儲存失敗"));
+          setSaving(false);
+          return;
+        }
+        const data = (await orderRes.json()) as { images: { id: number; url: string }[] };
+        applyServerImages(data.images);
+      }
+
       const body = {
         name,
         region,
         statusId,
         note,
         prices: buildPrices(),
+        // 名稱和價格都空白 = 不提供自訂選項；只填一半交給伺服器回傳錯誤訊息
+        customOption:
+          customLabel.trim() === "" && customPrice.trim() === ""
+            ? null
+            : { label: customLabel, price: customPrice.trim() === "" ? NaN : Number(customPrice) },
       };
       const res = product
         ? await fetch(`/api/admin/products/${product.id}`, {
@@ -650,13 +881,50 @@ function ProductForm({
         </div>
       </div>
 
+      <div className={styles.fieldRow}>
+        <div className={styles.field}>
+          <label>自訂選項名稱（選填，例如「禮盒裝」）</label>
+          <input
+            className={styles.input}
+            maxLength={CUSTOM_OPTION_LABEL_MAX_LENGTH}
+            placeholder="不填則不提供"
+            value={customLabel}
+            onChange={(e) => setCustomLabel(e.target.value)}
+          />
+        </div>
+        <div className={styles.field}>
+          <label>自訂選項價格</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.input}
+            value={customPrice}
+            onChange={(e) => setCustomPrice(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div className={styles.field}>
         <label>商品圖片（最多 4 張）</label>
         <div className={styles.thumbRow}>
           {images.map((img, idx) => (
-            <div key={`${img.url}-${idx}`} className={styles.thumb}>
+            <div
+              key={imageKey(img)}
+              ref={imageDrag.rowRef(imageKey(img))}
+              className={`${styles.thumb} ${images.length > 1 && !saving ? styles.thumbDraggable : ""} ${
+                imageDrag.draggingId === imageKey(img) ? styles.thumbDragging : ""
+              }`}
+              {...(images.length > 1 && !saving
+                ? {
+                    ...imageDrag.handleProps(imageKey(img)),
+                    tabIndex: 0,
+                    role: "button",
+                    "aria-label": `第 ${idx + 1} 張圖片，拖移或用左右鍵調整順序`,
+                  }
+                : {})}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt="" />
+              <img src={img.url} alt="" draggable={false} />
               <button
                 type="button"
                 className={styles.thumbRemove}
@@ -666,12 +934,16 @@ function ProductForm({
               </button>
             </div>
           ))}
+          {images.length < 4 && (
+            <ImageUploadButton
+              folder="products"
+              onUploaded={handleAddImage}
+              label="新增圖片"
+              variant="tile"
+              disabled={saving}
+            />
+          )}
         </div>
-        {images.length < 4 && (
-          <div style={{ marginTop: 8 }}>
-            <ImageUploadButton folder="products" onUploaded={handleAddImage} label="新增圖片" disabled={saving} />
-          </div>
-        )}
       </div>
 
       {error && (
@@ -681,7 +953,7 @@ function ProductForm({
       )}
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button type="button" className={styles.button} onClick={handleSave} disabled={saving}>
+        <button type="button" className={styles.button} onClick={handleSave} disabled={saving || !formDirty}>
           {saving ? "儲存中…" : product ? "儲存變更" : "新增商品"}
         </button>
         <button type="button" className={styles.buttonSecondary} onClick={onCancel}>

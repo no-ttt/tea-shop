@@ -176,6 +176,65 @@
   border: 1px solid var(--line);
 }
 
+/* 縮圖列最後的「新增圖片」格（ImageUploadButton variant="tile"） */
+.thumbAdd {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1.5px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.thumbAdd:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(201, 138, 75, 0.08);
+}
+
+.thumbAdd:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thumbAddUploading {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+/* 商品編輯表單的圖片可拖移排序（ProductForm） */
+.thumbDraggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.thumbDraggable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.thumbDragging {
+  cursor: grabbing;
+  border-color: var(--accent);
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
 .thumb img {
   width: 100%;
   height: 100%;
@@ -406,6 +465,10 @@
   cursor: pointer;
 }
 
+.multiSelectOption + .multiSelectOption {
+  margin-top: 2px;
+}
+
 .multiSelectOption:hover {
   background: rgba(201, 138, 75, 0.18);
 }
@@ -627,4 +690,134 @@
 
 .storageFill.danger {
   background: var(--danger);
+}
+
+/* 分區順序與名稱：每列 拖移把手 + 序號 + 名稱輸入框 */
+.orderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.orderRowDragging {
+  background: rgba(201, 138, 75, 0.14);
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.orderIndex {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.orderInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.dragHandle {
+  width: 28px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: -3px;
+  cursor: grab;
+  /* 觸控拖移時不要讓瀏覽器把手勢當成捲動頁面 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dragHandle:hover:not(:disabled),
+.dragHandle:focus-visible {
+  color: var(--accent);
+  background: rgba(201, 138, 75, 0.12);
+}
+
+.orderRowDragging .dragHandle {
+  cursor: grabbing;
+  color: var(--accent);
+}
+
+.dragHandle:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 商品拖移排序 */
+.cardDragging {
+  background: rgba(201, 138, 75, 0.14);
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.cardDragging .dragHandle {
+  cursor: grabbing;
+  color: var(--accent);
+}
+
+.orderSaveBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(201, 138, 75, 0.1);
+  font-size: 12.5px;
+  color: var(--cream);
+}
+
+.productGroup + .productGroup {
+  margin-top: 14px;
+}
+
+.productGroupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cream);
+}
+
+.productGroupTitle span {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* 有拖移把手的卡片：把手一欄 + 內容一欄 */
+.cardWithHandle {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
 }

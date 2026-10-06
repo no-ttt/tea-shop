@@ -9,6 +9,8 @@ interface __BaseEnv_Env {
 	SESSION_SECRET: string;
 	RESEND_API_KEY: string;
 	EMAIL_FROM: string;
+	/** 只在本地 .dev.vars 設定：有值時所有訂單信改寄到這個地址（見 lib/email.ts），正式環境不要設定 */
+	EMAIL_TEST_REDIRECT_TO?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

@@ -13,7 +13,9 @@ import type {
   OrderConfirmation,
   OrderErrorResponse,
   OrderPayload,
+  ProductOptionSelection,
 } from "@/lib/types";
+import { optionLabel, optionPrice } from "@/lib/product-options";
 import type { SiteSettings } from "@/lib/data";
 import { calcOrderTotals } from "@/lib/pricing";
 import type { PolicyKey } from "@/lib/policy-content";
@@ -56,10 +58,10 @@ export default function Storefront({
 }) {
   const router = useRouter();
   const [currentRegionId, setCurrentRegionId] = useState(regions[0]?.id ?? "");
-  const [selectedWeights, setSelectedWeights] = useState<Record<string, number>>({});
+  const [selectedWeights, setSelectedWeights] = useState<Record<string, ProductOptionSelection>>({});
   const [cart, setCart] = useState<CartLine[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [policyKey, setPolicyKey] = useState<PolicyKey | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -92,7 +94,7 @@ export default function Storefront({
     !!policyKey ||
     !!validationMessage ||
     !!checkoutChangesMessage ||
-    !!lightboxSrc;
+    !!lightbox;
 
   useEffect(() => {
     if (!anyOverlayOpen) return;
@@ -108,7 +110,7 @@ export default function Storefront({
     setTimeout(() => setToast(null), 1800);
   };
 
-  const handleSelectWeight = (productId: string, weight: number) => {
+  const handleSelectWeight = (productId: string, weight: ProductOptionSelection) => {
     setSelectedWeights((prev) => ({ ...prev, [productId]: weight }));
   };
 
@@ -250,15 +252,17 @@ export default function Storefront({
   const handleAddToCart = async (productId: string) => {
     const product = productMap.get(productId);
     const weight = selectedWeights[productId];
-    if (!product || !weight || !product.prices || addingProductId) return;
+    if (!product || !weight || addingProductId) return;
+    const price = optionPrice(product, weight);
+    if (price === null) return;
 
     const line: CartLine = {
       key: `${productId}-${weight}-${Date.now()}`,
       productId,
       name: product.name.replace(/\n/g, " "),
-      detail: `${regionTitleMap.get(product.region) ?? product.region}／${weight}g`,
-      price: product.prices[String(weight) as "30" | "80" | "150"],
-      weight,
+      detail: `${regionTitleMap.get(product.region) ?? product.region}／${optionLabel(product, weight)}`,
+      price,
+      ...(weight === "custom" ? { custom: true } : { weight }),
     };
     const withLine = [...cart, line];
 
@@ -379,13 +383,11 @@ export default function Storefront({
 
       <h1 className={styles.h1}>{currentRegion.title}</h1>
       <div className={styles.subtitle}>{currentRegion.subtitle}</div>
+      {currentRegion.description && <p className={styles.regionDescription}>{currentRegion.description}</p>}
       {currentRegion.note && <div className={styles.comboNote}>{currentRegion.note}</div>}
 
-      <div className={styles.memberNote}>
-        經典會員（Member）無購買數量限制；欲加入 VIP 會員，初次入會需購買「2 斤」茶款（不限茶）。
-        <br />
-        非 VIP 會員，價目表傳出後，有效期以傳出日計算，三日內有效。
-      </div>
+      {/* 內容與字級由後台「其他設定 → 會員資格說明」編輯；清空則不顯示 */}
+      {siteSettings.content.memberNote && <div className={styles.memberNote}>{siteSettings.content.memberNote}</div>}
 
       <div className={styles.layout}>
         <div className={styles.card}>
@@ -399,7 +401,7 @@ export default function Storefront({
             onSelectWeight={handleSelectWeight}
             onAddToCart={handleAddToCart}
             addingProductId={addingProductId}
-            onOpenLightbox={setLightboxSrc}
+            onOpenLightbox={(images, index) => setLightbox({ images, index })}
           />
         </div>
 
@@ -446,7 +448,9 @@ export default function Storefront({
       />
 
       <PolicyModal policyKey={policyKey} onClose={() => setPolicyKey(null)} />
-      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      {lightbox && (
+        <ImageLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
+      )}
       <ValidationAlertModal message={validationMessage} onClose={() => setValidationMessage(null)} />
       <CheckoutChangesModal
         message={checkoutChangesMessage}

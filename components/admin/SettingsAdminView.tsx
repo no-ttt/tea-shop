@@ -4,20 +4,28 @@ import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { SiteSettings } from "@/lib/admin-data";
+import { MEMBER_NOTE_MAX_LENGTH } from "@/lib/types";
 import ImageUploadButton from "./ImageUploadButton";
 import { parseErrorMessage } from "@/lib/admin-client-helpers";
 import styles from "./adminShared.module.css";
+// 預覽直接套用首頁的同一個 class，畫面跟前台完全一致
+import storefrontStyles from "../Storefront.module.css";
 
 const SAVED_MESSAGE_TIMEOUT_MS = 3000;
+const DEFAULT_MEMBER_NOTE_SCALE = 1;
 
 export default function SettingsAdminView({
   shipping,
   shopEmail,
   linePayQrImage,
+  memberNote: initialMemberNote,
+  memberNoteScale: initialMemberNoteScale,
 }: {
   shipping: SiteSettings["shipping"];
   shopEmail: string;
   linePayQrImage: string;
+  memberNote: string;
+  memberNoteScale: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -26,6 +34,8 @@ export default function SettingsAdminView({
   const [fee, setFee] = useState(shipping.fee);
   const [notifyEmail, setNotifyEmail] = useState(shopEmail);
   const [qrImage, setQrImage] = useState(linePayQrImage);
+  const [memberNote, setMemberNote] = useState(initialMemberNote);
+  const [memberNoteScale, setMemberNoteScale] = useState(initialMemberNoteScale);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +74,8 @@ export default function SettingsAdminView({
           "shipping.fee": fee,
           "notify.shopEmail": notifyEmail,
           "branding.linePayQrImage": qrImage,
+          "content.memberNote": memberNote,
+          "theme.scaleMemberNote": memberNoteScale,
         }),
       });
       if (!res.ok) {
@@ -125,6 +137,70 @@ export default function SettingsAdminView({
           <button type="button" className={styles.button} onClick={handleSave} disabled={saving || isPending}>
             {saving ? "儲存中…" : "儲存變更"}
           </button>
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>會員資格說明</h3>
+        <div className={styles.field}>
+          <label>顯示在首頁分頁標題下方；按 Enter 換行，清空則首頁不顯示這個區塊</label>
+          <textarea
+            className={styles.textarea}
+            rows={4}
+            maxLength={MEMBER_NOTE_MAX_LENGTH}
+            value={memberNote}
+            onChange={(e) => {
+              setMemberNote(e.target.value);
+              clearSavedMessage();
+            }}
+          />
+          <p className={styles.helpText} style={{ textAlign: "right", margin: "4px 0 0" }}>
+            {memberNote.length} / {MEMBER_NOTE_MAX_LENGTH}
+          </p>
+        </div>
+
+        <div className={styles.sliderRow}>
+          <label>文字大小</label>
+          <input
+            type="range"
+            min={0.7}
+            max={1.6}
+            step={0.05}
+            value={memberNoteScale}
+            onChange={(e) => {
+              setMemberNoteScale(Number(e.target.value));
+              clearSavedMessage();
+            }}
+          />
+          <span className={styles.sliderVal}>{memberNoteScale.toFixed(2).replace(/\.?0+$/, "")}x</span>
+        </div>
+        <button
+          type="button"
+          className={styles.buttonSecondary}
+          onClick={() => {
+            setMemberNoteScale(DEFAULT_MEMBER_NOTE_SCALE);
+            clearSavedMessage();
+          }}
+        >
+          還原成預設大小
+        </button>
+
+        <p className={styles.helpText} style={{ margin: "16px 0 6px" }}>
+          即時預覽（跟首頁顯示方式相同，按右上角「儲存變更」才會套用到首頁）
+        </p>
+        <div
+          className={styles.previewBox}
+          style={{ "--scale-member-note": memberNoteScale } as React.CSSProperties}
+        >
+          {memberNote.trim() ? (
+            <div className={storefrontStyles.memberNote} style={{ marginBottom: 0 }}>
+              {memberNote.trim()}
+            </div>
+          ) : (
+            <p className={styles.helpText} style={{ textAlign: "center", margin: 0 }}>
+              內容為空，首頁不會顯示這個區塊
+            </p>
+          )}
         </div>
       </div>
 

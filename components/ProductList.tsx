@@ -1,4 +1,4 @@
-import type { Product, ProductStatus } from "@/lib/types";
+import type { Product, ProductOptionSelection, ProductStatus } from "@/lib/types";
 import ProductCard from "./ProductCard";
 import styles from "./ProductList.module.css";
 
@@ -16,13 +16,13 @@ export default function ProductList({
   products: Product[];
   currentRegion: string;
   statuses: ProductStatus[];
-  selectedWeights: Record<string, number>;
+  selectedWeights: Record<string, ProductOptionSelection>;
   weightOptions: number[];
-  onSelectWeight: (productId: string, weight: number) => void;
+  onSelectWeight: (productId: string, weight: ProductOptionSelection) => void;
   onAddToCart: (productId: string) => void;
   /** 正在向伺服器確認、尚未加入購物車的商品 id */
   addingProductId: string | null;
-  onOpenLightbox: (src: string) => void;
+  onOpenLightbox: (images: string[], index: number) => void;
 }) {
   const list = products.filter((p) => p.region === currentRegion);
   const statusMap = new Map(statuses.map((s) => [s.id, s]));

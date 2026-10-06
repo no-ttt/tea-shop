@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LINEPAY_LAST3_LENGTH, isDigits } from "@/lib/order-validation";
 import shared from "./checkoutShared.module.css";
 
 export default function LinePayQrModal({
@@ -11,6 +12,7 @@ export default function LinePayQrModal({
   onCancel: () => void;
 }) {
   const [last3, setLast3] = useState("");
+  const complete = isDigits(last3, LINEPAY_LAST3_LENGTH);
 
   return (
     <div className={shared.overlay} style={{ zIndex: 60 }}>
@@ -36,18 +38,23 @@ export default function LinePayQrModal({
             <label>付款完成請輸入電話後3碼</label>
             <input
               type="text"
-              maxLength={3}
+              maxLength={LINEPAY_LAST3_LENGTH}
               inputMode="numeric"
+              autoComplete="off"
               placeholder="例如：165"
               value={last3}
-              onChange={(e) => setLast3(e.target.value)}
+              onChange={(e) => setLast3(e.target.value.replace(/\D/g, "").slice(0, LINEPAY_LAST3_LENGTH))}
             />
+            <div className={shared.charCount}>
+              {complete ? "✓ 已填寫完整" : `還差 ${LINEPAY_LAST3_LENGTH - last3.length} 碼`}
+            </div>
           </div>
           <button
             type="button"
             className={shared.button}
+            disabled={!complete}
             onClick={() => {
-              if (last3) onConfirm(last3);
+              if (complete) onConfirm(last3);
             }}
           >
             確定

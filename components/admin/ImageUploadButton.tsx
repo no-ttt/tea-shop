@@ -42,6 +42,7 @@ export default function ImageUploadButton({
   label = "上傳圖片",
   compress = true,
   disabled = false,
+  variant = "button",
 }: {
   folder: "products" | "regions" | "branding";
   onUploaded: (url: string) => void;
@@ -49,6 +50,12 @@ export default function ImageUploadButton({
   /** QR Code 這類需要保持銳利的圖片傳 false，原檔上傳 */
   compress?: boolean;
   disabled?: boolean;
+  /**
+   * button：一般文字按鈕（預設）。
+   * tile：跟縮圖同大小的虛線方框、中間一個 ＋，放在縮圖列（.thumbRow）最後面當「新增」格。
+   * label 會當作 aria-label／滑鼠提示文字。
+   */
+  variant?: "button" | "tile";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -80,8 +87,11 @@ export default function ImageUploadButton({
     }
   };
 
+  const isTile = variant === "tile";
+
   return (
-    <div>
+    // tile 模式用 display: contents，讓方框和錯誤訊息直接成為縮圖列的項目
+    <div style={isTile ? { display: "contents" } : undefined}>
       <input
         ref={inputRef}
         type="file"
@@ -89,16 +99,29 @@ export default function ImageUploadButton({
         style={{ display: "none" }}
         onChange={handleChange}
       />
-      <button
-        type="button"
-        className={styles.buttonSecondary}
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled || uploading}
-      >
-        {uploading ? "上傳中…" : label}
-      </button>
+      {isTile ? (
+        <button
+          type="button"
+          className={styles.thumbAdd}
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled || uploading}
+          aria-label={label}
+          title={label}
+        >
+          {uploading ? <span className={styles.thumbAddUploading}>上傳中</span> : "+"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={styles.buttonSecondary}
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled || uploading}
+        >
+          {uploading ? "上傳中…" : label}
+        </button>
+      )}
       {error && (
-        <p className={styles.helpText} style={{ color: "#c0392b" }}>
+        <p className={styles.helpText} style={{ color: "#c0392b", ...(isTile ? { flexBasis: "100%", margin: 0 } : {}) }}>
           {error}
         </p>
       )}

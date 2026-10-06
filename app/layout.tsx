@@ -30,6 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const scaleTitle = safeScale(theme.scaleTitle, 1);
   const scaleItem = safeScale(theme.scaleItem, 1);
   const scalePrice = safeScale(theme.scalePrice, 1);
+  const scaleMemberNote = safeScale(theme.scaleMemberNote, 1);
   const colorTitle = safeColor(theme.colorTitle, "#f3ede1");
   const colorItem = safeColor(theme.colorItem, "#f3ede1");
   const colorPrice = safeColor(theme.colorPrice, "#c98a4b");
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           --scale-title: ${scaleTitle};
           --scale-item: ${scaleItem};
           --scale-price: ${scalePrice};
+          --scale-member-note: ${scaleMemberNote};
           --color-title: ${colorTitle};
           --color-item: ${colorItem};
           --color-price: ${colorPrice};

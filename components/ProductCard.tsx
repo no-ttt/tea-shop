@@ -1,5 +1,6 @@
 import Image from "next/image";
-import type { Product, ProductStatus } from "@/lib/types";
+import type { Product, ProductOptionSelection, ProductStatus } from "@/lib/types";
+import { optionLabel, optionPrice } from "@/lib/product-options";
 import styles from "./ProductCard.module.css";
 
 function fmt(n: number): string {
@@ -23,15 +24,16 @@ export default function ProductCard({
 }: {
   product: Product;
   status: ProductStatus;
-  selectedWeight: number | null;
+  selectedWeight: ProductOptionSelection | null;
   weightOptions: number[];
-  onSelectWeight: (productId: string, weight: number) => void;
+  onSelectWeight: (productId: string, weight: ProductOptionSelection) => void;
   onAddToCart: (productId: string) => void;
   /** 這個商品正在向伺服器確認庫存/價格 */
   adding: boolean;
   /** 有任一商品正在確認中（避免同時多筆請求造成購物車更新順序錯亂） */
   addDisabled: boolean;
-  onOpenLightbox: (src: string) => void;
+  /** 打開燈箱：傳入這個商品的所有照片與點到的那張索引，燈箱內可左右切換 */
+  onOpenLightbox: (images: string[], index: number) => void;
 }) {
   if (status.type !== "purchasable") {
     return (
@@ -48,10 +50,16 @@ export default function ProductCard({
   }
 
   const prices = product.prices;
+  const customOption = product.customOption;
+  // 可選的規格：有設定克數價格才列克數，有設定自訂選項才多一顆自訂按鈕
+  const options: ProductOptionSelection[] = [...(prices ? weightOptions : []), ...(customOption ? ["custom" as const] : [])];
+  const selectedPrice = selectedWeight ? optionPrice(product, selectedWeight) : null;
   const previewText =
-    selectedWeight && prices
-      ? `${plainName(product.name)}／${selectedWeight}g／`
-      : "請選擇克數";
+    selectedWeight && selectedPrice !== null
+      ? `${plainName(product.name)}／${optionLabel(product, selectedWeight)}／`
+      : prices
+        ? "請選擇克數"
+        : "請選擇規格";
 
   return (
     <div className={styles.item}>
@@ -64,10 +72,10 @@ export default function ProductCard({
         <div className={styles.photoGrid}>
           {product.images.map((src, i) => (
             <button
-              key={src}
+              key={`${i}-${src}`}
               type="button"
               className={styles.photoThumb}
-              onClick={() => onOpenLightbox(src)}
+              onClick={() => onOpenLightbox(product.images, i)}
               aria-label={`${product.name} 商品照片 ${i + 1}`}
             >
               <Image src={src} alt="" fill sizes="76px" />
@@ -76,18 +84,20 @@ export default function ProductCard({
         </div>
       )}
 
-      {prices && (
+      {options.length > 0 && (
         <div className={styles.weightOptions}>
-          {weightOptions.map((w) => (
+          {options.map((w) => (
             <button
               key={w}
               type="button"
               className={`${styles.weightBtn} ${selectedWeight === w ? styles.weightBtnSelected : ""}`}
               onClick={() => onSelectWeight(product.id, w)}
             >
-              <span className={`${styles.g} ${selectedWeight === w ? styles.gSelected : ""}`}>{w}g</span>
+              <span className={`${styles.g} ${selectedWeight === w ? styles.gSelected : ""}`}>
+                {optionLabel(product, w)}
+              </span>
               <span className={`${styles.p} ${selectedWeight === w ? styles.pSelected : ""}`}>
-                {fmt(prices[String(w) as "30" | "80" | "150"])}
+                {fmt(optionPrice(product, w) ?? 0)}
               </span>
             </button>
           ))}
@@ -97,12 +107,12 @@ export default function ProductCard({
       <div className={styles.bottom}>
         <div className={styles.preview}>
           {previewText}
-          {selectedWeight && prices && <b>{fmt(prices[String(selectedWeight) as "30" | "80" | "150"])}</b>}
+          {selectedPrice !== null && <b>{fmt(selectedPrice)}</b>}
         </div>
         <button
           type="button"
           className={styles.addBtn}
-          disabled={!selectedWeight || addDisabled}
+          disabled={selectedPrice === null || addDisabled}
           onClick={() => onAddToCart(product.id)}
         >
           {adding ? "確認中…" : "加入"}

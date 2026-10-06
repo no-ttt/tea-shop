@@ -22,6 +22,27 @@
       "when": 1789392579266,
       "tag": "0002_fuzzy_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791276565275,
+      "tag": "0003_modern_power_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791281140525,
+      "tag": "0004_furry_meggan",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791291899030,
+      "tag": "0005_true_firelord",
+      "breakpoints": true
     }
   ]
 }

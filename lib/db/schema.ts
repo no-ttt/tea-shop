@@ -6,6 +6,8 @@ export const regions = sqliteTable("regions", {
   title: text("title").notNull(),
   subtitle: text("subtitle").notNull(),
   note: text("note"),
+  /** 分頁介紹：顯示在副標題下方的多行說明文字（選填） */
+  description: text("description"),
   bgPos: text("bg_pos").notNull(),
   bgImage: text("bg_image").notNull(),
   bgImageMobile: text("bg_image_mobile").notNull(),
@@ -28,6 +30,9 @@ export const products = sqliteTable("products", {
   price30: integer("price_30"),
   price80: integer("price_80"),
   price150: integer("price_150"),
+  /** 克數以外的「自訂」購買選項（例如「禮盒裝」）：名稱與價格必須同時有值或同時為 null */
+  customOptionLabel: text("custom_option_label"),
+  customOptionPrice: integer("custom_option_price"),
   note: text("note"),
   statusId: text("status_id")
     .notNull()
@@ -100,6 +105,8 @@ export const orders = sqliteTable("orders", {
   paymentMethod: text("payment_method", { enum: ["bank", "linepay"] }).notNull(),
   bankTransferLast5: text("bank_transfer_last5"),
   linePayLast3: text("line_pay_last3"),
+  /** 下單者在結帳頁填寫的文字備註（選填） */
+  note: text("note"),
   subtotal: integer("subtotal").notNull(),
   bundleDiscountAmount: integer("bundle_discount_amount").notNull().default(0),
   bundleName: text("bundle_name"),

@@ -5,6 +5,8 @@ import FreeShippingConfirmModal from "./FreeShippingConfirmModal";
 import LinePayQrModal from "./LinePayQrModal";
 import LinePayConfirmModal from "./LinePayConfirmModal";
 import CustomSelect from "./CustomSelect";
+import ValidationAlertModal from "./ValidationAlertModal";
+import { ORDER_NOTE_MAX_LENGTH, validateOrderForm, type OrderFormError } from "@/lib/order-validation";
 import shared from "./checkoutShared.module.css";
 
 function fmt(n: number): string {
@@ -30,6 +32,7 @@ export interface CheckoutSubmitExtra {
   paymentMethod: PaymentMethod | null;
   bankTransferLast5?: string;
   linePayLast3?: string;
+  note?: string;
 }
 
 export default function CheckoutOverlay({
@@ -75,6 +78,7 @@ export default function CheckoutOverlay({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [bankTransferLast5, setBankTransferLast5] = useState("");
   const [linePayLast3, setLinePayLast3] = useState("");
+  const [note, setNote] = useState("");
 
   const totalBeforeShipping = Math.max(0, totals.subtotal - totals.bundleDiscountAmount);
   const remainingForFreeShipping = freeShippingThreshold - totalBeforeShipping;
@@ -85,6 +89,10 @@ export default function CheckoutOverlay({
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [freeShippingConfirmOpen, setFreeShippingConfirmOpen] = useState(false);
+  // 按過一次「送出訂單」後才開始即時標示缺漏欄位，避免客人一打開結帳頁就滿版紅字
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  // 送出前檢查沒過時跳出的提示視窗；關閉後捲到該欄位
+  const [alertError, setAlertError] = useState<OrderFormError | null>(null);
 
   if (!open) return null;
 
@@ -114,17 +122,7 @@ export default function CheckoutOverlay({
     }
   };
 
-  const handleSubmitClick = () => {
-    if (!totals.qualifiesForFreeShipping) {
-      setFreeShippingConfirmOpen(true);
-      return;
-    }
-    handleSubmit();
-  };
-
-  const handleSubmit = async () => {
-    setError(null);
-
+  const buildOrder = () => {
     const extra: CheckoutSubmitExtra = {
       name,
       phone,
@@ -141,6 +139,7 @@ export default function CheckoutOverlay({
       paymentMethod,
       bankTransferLast5: paymentMethod === "bank" ? bankTransferLast5 : undefined,
       linePayLast3: paymentMethod === "linepay" ? linePayLast3 : undefined,
+      note: note.trim() || undefined,
     };
 
     const payload: Omit<OrderPayload, "checkoutVersion"> = {
@@ -156,7 +155,56 @@ export default function CheckoutOverlay({
       paymentMethod,
       bankTransferLast5: extra.bankTransferLast5,
       linePayLast3: extra.linePayLast3,
+      note: extra.note,
     };
+
+    return { extra, payload };
+  };
+
+  // 跟伺服器 createOrder 同一套規則（lib/order-validation.ts），送出前就先在畫面上擋下缺漏
+  const formError = attemptedSubmit ? validateOrderForm(buildOrder().payload, customerFields, qualifiesForGroup) : null;
+  const fieldClass = (key: string) =>
+    `${shared.formField} ${formError?.field === key ? shared.formFieldInvalid : ""}`;
+  const fieldError = (key: string) =>
+    formError?.field === key ? <div className={shared.fieldError}>{formError.message}</div> : null;
+
+  /** 送出前檢查：沒過就跳提示並回傳 false（呼叫端不打 API）。 */
+  const checkBeforeSubmit = (): boolean => {
+    setAttemptedSubmit(true);
+    const invalid = validateOrderForm(buildOrder().payload, customerFields, qualifiesForGroup);
+    if (invalid) {
+      setFreeShippingConfirmOpen(false);
+      setAlertError(invalid);
+      return false;
+    }
+    return true;
+  };
+
+  // 關閉提示後捲到缺漏的欄位並聚焦，客人不用自己往上找
+  const handleAlertClose = () => {
+    const field = alertError?.field;
+    setAlertError(null);
+    if (!field) return;
+    const el = document.querySelector<HTMLElement>(`[data-field="${field}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.querySelector<HTMLElement>("input:not([type=checkbox]), textarea, button")?.focus({ preventScroll: true });
+  };
+
+  const handleSubmitClick = () => {
+    setError(null);
+    if (!checkBeforeSubmit()) return;
+    if (!totals.qualifiesForFreeShipping) {
+      setFreeShippingConfirmOpen(true);
+      return;
+    }
+    handleSubmit();
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    // 免運確認視窗的「確認送出」也會走到這裡，打 API 前再檢查一次
+    if (!checkBeforeSubmit()) return;
+    const { extra, payload } = buildOrder();
 
     setSubmitting(true);
     const result = await onSubmit(payload, extra);
@@ -210,34 +258,38 @@ export default function CheckoutOverlay({
           </div>
 
           <div className={shared.sectionTitle}>會員資訊</div>
-          <div className={shared.formField}>
+          <div className={fieldClass("cf_name")} data-field="cf_name">
             <label>
               {nameField?.label ?? "姓名"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+            {fieldError("cf_name")}
           </div>
-          <div className={shared.formField}>
+          <div className={fieldClass("cf_phone")} data-field="cf_phone">
             <label>
               {phoneField?.label ?? "電話"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            {fieldError("cf_phone")}
           </div>
           {qualifiesForGroup && lineIdField && (
-            <div className={shared.formField}>
+            <div className={fieldClass("cf_lineId")} data-field="cf_lineId">
               <label>
                 {lineIdField.label} <span className={shared.requiredMark}>*</span>
               </label>
               <input type="text" value={lineId} onChange={(e) => setLineId(e.target.value)} />
+              {fieldError("cf_lineId")}
             </div>
           )}
-          <div className={shared.formField}>
+          <div className={fieldClass("cf_email")} data-field="cf_email">
             <label>
               {emailField?.label ?? "電子郵件"} <span className={shared.requiredMark}>*</span>
             </label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            {fieldError("cf_email")}
           </div>
           {customFields.map((field) => (
-            <div className={shared.formField} key={field.id}>
+            <div className={fieldClass(`cf_${field.id}`)} data-field={`cf_${field.id}`} key={field.id}>
               <label>
                 {field.label} {field.required && <span className={shared.requiredMark}>*</span>}
               </label>
@@ -248,10 +300,11 @@ export default function CheckoutOverlay({
                   setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
                 }
               />
+              {fieldError(`cf_${field.id}`)}
             </div>
           ))}
           {birthdayField && (
-            <div className={shared.formField}>
+            <div className={fieldClass("cf_birthday")} data-field="cf_birthday">
               <label>
                 {birthdayField.label} {birthdayField.required && <span className={shared.requiredMark}>*</span>}
               </label>
@@ -290,11 +343,12 @@ export default function CheckoutOverlay({
                   ]}
                 />
               </div>
+              {fieldError("cf_birthday")}
             </div>
           )}
 
           <div className={shared.sectionTitle}>收件資訊</div>
-          <div className={shared.formField}>
+          <div className={fieldClass("shippingMethod")} data-field="shippingMethod">
             <label>取貨方式</label>
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -332,24 +386,27 @@ export default function CheckoutOverlay({
                 超商取貨門市
               </button>
             </div>
+            {fieldError("shippingMethod")}
           </div>
 
           {shippingMethod === "mail" && (
             <>
               {zipField && (
-                <div className={shared.formField}>
+                <div className={fieldClass("cf_zip")} data-field="cf_zip">
                   <label>
                     {zipField.label} {zipField.required && <span className={shared.requiredMark}>*</span>}
                   </label>
                   <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} />
+                  {fieldError("cf_zip")}
                 </div>
               )}
               {addressField && (
-                <div className={shared.formField}>
+                <div className={fieldClass("cf_address")} data-field="cf_address">
                   <label>
                     {addressField.label} {addressField.required && <span className={shared.requiredMark}>*</span>}
                   </label>
                   <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
+                  {fieldError("cf_address")}
                 </div>
               )}
             </>
@@ -366,7 +423,7 @@ export default function CheckoutOverlay({
                   options={CVS_TYPES.map((t) => ({ value: t, label: t }))}
                 />
               </div>
-              <div className={shared.formField}>
+              <div className={fieldClass("cvsStoreName")} data-field="cvsStoreName">
                 <label>
                   門市名稱 <span className={shared.requiredMark}>*</span>
                 </label>
@@ -376,6 +433,7 @@ export default function CheckoutOverlay({
                   value={cvsStoreName}
                   onChange={(e) => setCvsStoreName(e.target.value)}
                 />
+                {fieldError("cvsStoreName")}
               </div>
             </>
           )}
@@ -387,64 +445,88 @@ export default function CheckoutOverlay({
             </label>
           </div>
           {isGift && (
-            <div className={shared.formField}>
-              <label>收禮人姓名</label>
+            <div className={fieldClass("custGiftName")} data-field="custGiftName">
+              <label>
+                收禮人姓名 <span className={shared.requiredMark}>*</span>
+              </label>
               <input type="text" value={giftName} onChange={(e) => setGiftName(e.target.value)} />
+              {fieldError("custGiftName")}
             </div>
           )}
+
+          <div className={fieldClass("orderNote")} data-field="orderNote">
+            <label>訂單備註（選填）</label>
+            <textarea
+              className={shared.textarea}
+              rows={3}
+              maxLength={ORDER_NOTE_MAX_LENGTH}
+              placeholder="有任何需要告訴我們的事，例如希望的到貨時段、包裝需求等"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <div className={shared.charCount}>
+              {note.length} / {ORDER_NOTE_MAX_LENGTH}
+            </div>
+            {fieldError("orderNote")}
+          </div>
 
           <div className={shared.sectionTitle}>付款方式</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              type="button"
-              style={{
-                flex: 1,
-                border: `1px solid ${paymentMethod === "bank" ? "var(--accent)" : "var(--line)"}`,
-                borderRadius: 10,
-                padding: 12,
-                textAlign: "center",
-                background: paymentMethod === "bank" ? "rgba(201,138,75,0.18)" : "rgba(255,255,255,0.04)",
-                color: paymentMethod === "bank" ? "var(--accent)" : "var(--cream)",
-                fontWeight: paymentMethod === "bank" ? 700 : 400,
-                cursor: "pointer",
-              }}
-              disabled={verifying}
-              onClick={() => handlePaymentSelect("bank")}
-            >
-              匯款
-            </button>
-            <button
-              type="button"
-              style={{
-                flex: 1,
-                border: `1px solid ${paymentMethod === "linepay" ? "var(--accent)" : "var(--line)"}`,
-                borderRadius: 10,
-                padding: 12,
-                textAlign: "center",
-                background: paymentMethod === "linepay" ? "rgba(201,138,75,0.18)" : "rgba(255,255,255,0.04)",
-                color: paymentMethod === "linepay" ? "var(--accent)" : "var(--cream)",
-                fontWeight: paymentMethod === "linepay" ? 700 : 400,
-                cursor: "pointer",
-              }}
-              disabled={verifying}
-              onClick={() => handlePaymentSelect("linepay")}
-            >
-              LINE Pay
-            </button>
+          <div className={fieldClass("paymentMethod")} data-field="paymentMethod">
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                style={{
+                  flex: 1,
+                  border: `1px solid ${paymentMethod === "bank" ? "var(--accent)" : "var(--line)"}`,
+                  borderRadius: 10,
+                  padding: 12,
+                  textAlign: "center",
+                  background: paymentMethod === "bank" ? "rgba(201,138,75,0.18)" : "rgba(255,255,255,0.04)",
+                  color: paymentMethod === "bank" ? "var(--accent)" : "var(--cream)",
+                  fontWeight: paymentMethod === "bank" ? 700 : 400,
+                  cursor: "pointer",
+                }}
+                disabled={verifying}
+                onClick={() => handlePaymentSelect("bank")}
+              >
+                匯款
+              </button>
+              <button
+                type="button"
+                style={{
+                  flex: 1,
+                  border: `1px solid ${paymentMethod === "linepay" ? "var(--accent)" : "var(--line)"}`,
+                  borderRadius: 10,
+                  padding: 12,
+                  textAlign: "center",
+                  background: paymentMethod === "linepay" ? "rgba(201,138,75,0.18)" : "rgba(255,255,255,0.04)",
+                  color: paymentMethod === "linepay" ? "var(--accent)" : "var(--cream)",
+                  fontWeight: paymentMethod === "linepay" ? 700 : 400,
+                  cursor: "pointer",
+                }}
+                disabled={verifying}
+                onClick={() => handlePaymentSelect("linepay")}
+              >
+                LINE Pay
+              </button>
+            </div>
+            {paymentMethod === "bank" && bankTransferLast5 && (
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
+                已記錄匯款後五碼：{bankTransferLast5}
+              </div>
+            )}
+            {paymentMethod === "linepay" && linePayLast3 && (
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
+                已記錄付款回報後三碼：{linePayLast3}
+              </div>
+            )}
+            {fieldError("paymentMethod")}
           </div>
-          {paymentMethod === "bank" && bankTransferLast5 && (
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
-              已記錄匯款後五碼：{bankTransferLast5}
-            </div>
-          )}
-          {paymentMethod === "linepay" && linePayLast3 && (
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
-              已記錄付款回報後三碼：{linePayLast3}
-            </div>
-          )}
 
-          {error && (
-            <div style={{ color: "#e08a7a", fontSize: 13, marginTop: 14, textAlign: "center" }}>{error}</div>
+          {(error ?? formError?.message) && (
+            <div style={{ color: "#e08a7a", fontSize: 13, marginTop: 14, textAlign: "center" }}>
+              {error ?? `還有欄位未完成：${formError?.message}`}
+            </div>
           )}
 
           <button type="button" className={shared.button} style={{ marginTop: 22 }} disabled={submitting} onClick={handleSubmitClick}>
@@ -452,6 +534,8 @@ export default function CheckoutOverlay({
           </button>
         </div>
       </div>
+
+      <ValidationAlertModal message={alertError?.message ?? null} onClose={handleAlertClose} />
 
       {freeShippingConfirmOpen && (
         <FreeShippingConfirmModal

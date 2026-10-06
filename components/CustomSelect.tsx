@@ -16,8 +16,12 @@ export interface CustomSelectOption {
  * 展開面板用 position: fixed（而非原本的 absolute）並在展開時即時計算按鈕在畫面上的座標：
  * absolute 定位會被任何有 overflow: auto/hidden 的祖先容器（例如後台訂單表格外層的橫向
  * 捲動容器）裁切掉，這個元件不該預設自己一定不會被放進那種容器裡。展開後捲動頁面會直接
- * 關閉面板（而不是讓它跟著捲動），做法簡單且不會有位置算錯的風險。
+ * 關閉面板（而不是讓它跟著捲動），做法簡單且不會有位置算錯的風險；但面板自己內部的捲動
+ * （選項多時捲動選單）要排除，否則一捲就關。面板高度會依按鈕下方剩餘空間縮小，下方太擠
+ * 時改往上展開，避免面板超出視窗底部而看不到後面的選項。
  */
+const PANEL_MAX_HEIGHT = 260;
+
 export default function CustomSelect({
   value,
   options,
@@ -32,14 +36,31 @@ export default function CustomSelect({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [panelStyle, setPanelStyle] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (!open || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    setPanelStyle({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    const GAP = 6;
+    const MARGIN = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - GAP - MARGIN;
+    const spaceAbove = rect.top - GAP - MARGIN;
+    const openUp = spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow;
+    setPanelStyle({
+      ...(openUp ? { bottom: window.innerHeight - rect.top + GAP } : { top: rect.bottom + GAP }),
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.min(PANEL_MAX_HEIGHT, openUp ? spaceAbove : spaceBelow),
+    });
   }, [open]);
 
   useEffect(() => {
@@ -49,7 +70,10 @@ export default function CustomSelect({
         setOpen(false);
       }
     };
-    const handleScroll = () => setOpen(false);
+    const handleScroll = (e: Event) => {
+      if (panelRef.current && panelRef.current.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", handlePointerDown);
     // capture: true 才能收到表格橫向捲動容器等內層元素的 scroll 事件（那些不會冒泡到 window）。
     window.addEventListener("scroll", handleScroll, true);
@@ -75,10 +99,7 @@ export default function CustomSelect({
         {current?.label ?? ""}
       </button>
       {open && panelStyle && (
-        <div
-          className={styles.panel}
-          style={{ position: "fixed", top: panelStyle.top, left: panelStyle.left, width: panelStyle.width }}
-        >
+        <div ref={panelRef} className={styles.panel} style={{ position: "fixed", ...panelStyle }}>
           {options.map((opt) => (
             <div
               key={opt.value}

@@ -28,6 +28,20 @@
   margin-bottom: 6px;
 }
 
+.regionDescription {
+  max-width: 640px;
+  margin: 10px auto 12px;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.9;
+  letter-spacing: 0.5px;
+  color: var(--cream);
+  opacity: 0.88;
+  /* 內容由後台編輯，保留換行 */
+  white-space: pre-line;
+}
+
 .comboNote {
   text-align: center;
   font-size: 12px;
@@ -40,8 +54,10 @@
   max-width: 720px;
   margin: 0 auto 20px;
   text-align: center;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--scale-member-note, 1));
   line-height: 1.8;
+  /* 內容由後台編輯，保留換行 */
+  white-space: pre-line;
   color: var(--muted);
   opacity: 0.85;
   border-top: 1px solid var(--line);

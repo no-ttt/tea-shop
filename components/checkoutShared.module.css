@@ -111,6 +111,32 @@
   font-size: 14px;
 }
 
+.textarea {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cream);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 72px;
+}
+
+.textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.charCount {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: right;
+}
+
 .formField input[type="checkbox"],
 .formField input[type="radio"] {
   width: auto;
@@ -118,6 +144,19 @@
 
 .formField input::placeholder {
   color: rgba(255, 255, 255, 0.35);
+}
+
+/* 送出前檢查到的缺漏欄位（CheckoutOverlay 的 fieldClass/fieldError） */
+.formFieldInvalid input:not([type="checkbox"]):not([type="radio"]),
+.formFieldInvalid textarea,
+.formFieldInvalid button {
+  border-color: var(--danger) !important;
+}
+
+.fieldError {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #e08a7a;
 }
 
 .requiredMark {
@@ -135,6 +174,11 @@
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .buttonSecondary {

@@ -56,11 +56,13 @@
   /* position/top/left/width 由 CustomSelect.tsx 用 inline style 動態設定（position: fixed，
      依按鈕在畫面上的實際座標計算），避免被祖先層的 overflow 裁切。這裡不設定這幾個屬性。 */
   z-index: 30;
-  max-height: 260px;
+  max-height: 260px; /* 實際值由 inline style 依視窗剩餘空間覆寫 */
   overflow-y: auto;
+  /* 捲到底時不要把滾輪傳給頁面（頁面一捲動面板就會關閉） */
+  overscroll-behavior: contain;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  background-color: rgba(243, 237, 225, 0.94);
+  background-color: rgba(243, 237, 225, 0.97);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
@@ -89,12 +91,21 @@
   background-clip: padding-box;
 }
 
+/* 面板／選項樣式統一以後台組合折扣的品項多選選單（adminShared.module.css 的 .multiSelect*）為準 */
 .option {
-  padding: 8px 12px;
-  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
   font-size: 13px;
-  color: #2b1c0f;
+  color: #241c14;
   cursor: pointer;
+}
+
+/* 選項間留一點間距，hover 的選項緊鄰已選取的選項時兩塊底色才不會黏成一片 */
+.option + .option {
+  margin-top: 2px;
 }
 
 .option:hover {
@@ -102,6 +113,6 @@
 }
 
 .optionSelected {
-  background: #e7d3b4;
+  background: rgba(201, 138, 75, 0.28);
   font-weight: 700;
 }

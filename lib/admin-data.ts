@@ -14,7 +14,12 @@ import {
   orderItems as orderItemsTable,
   orderFailureLogs as orderFailureLogsTable,
 } from "./db/schema";
-import { ORDER_STATUSES } from "./types";
+import {
+  CUSTOM_OPTION_LABEL_MAX_LENGTH,
+  MEMBER_NOTE_MAX_LENGTH,
+  ORDER_STATUSES,
+  REGION_DESCRIPTION_MAX_LENGTH,
+} from "./types";
 import type { Region, Product, ProductStatus, CustomerField, BundleDiscount, CartLine, OrderStatus } from "./types";
 import type { SiteSettings } from "./data";
 
@@ -31,6 +36,15 @@ function requireNonEmpty(value: unknown, label: string): string {
   return value;
 }
 
+/** 選填的多行文字：統一換行符號、去頭尾空白，空字串存成 null，並檢查字數上限 */
+function optionalLongText(value: unknown, label: string, maxLength: number): string | null {
+  const text = optionalString(value);
+  if (text === null) return null;
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  if (normalized.length > maxLength) throw new AdminValidationError(`${label}請勿超過 ${maxLength} 字`);
+  return normalized || null;
+}
+
 function optionalString(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== "string") throw new AdminValidationError("欄位格式錯誤");
@@ -44,6 +58,7 @@ export interface RegionInput {
   title: string;
   subtitle: string;
   note?: string | null;
+  description?: string | null;
   bgPos: string;
   bgImage: string;
   bgImageMobile: string;
@@ -58,19 +73,31 @@ export async function createRegion(input: RegionInput): Promise<Region> {
   const bgPos = requireNonEmpty(input.bgPos, "底圖定位");
   const bgImage = requireNonEmpty(input.bgImage, "電腦版底圖");
   const bgImageMobile = requireNonEmpty(input.bgImageMobile, "手機版底圖");
+  const description = optionalLongText(input.description, "分頁介紹", REGION_DESCRIPTION_MAX_LENGTH);
+
+  // 沒指定順序時排到最後面，新分區不會突然插到前台分頁最前面。
+  let sortOrder = input.sortOrder;
+  if (sortOrder === undefined) {
+    const last = await db
+      .select({ max: sql<number | null>`max(${regionsTable.sortOrder})` })
+      .from(regionsTable)
+      .get();
+    sortOrder = (last?.max ?? -1) + 1;
+  }
 
   await db.insert(regionsTable).values({
     id,
     title,
     subtitle,
     note: optionalString(input.note),
+    description,
     bgPos,
     bgImage,
     bgImageMobile,
-    sortOrder: input.sortOrder ?? 0,
+    sortOrder,
   });
 
-  return { id, title, subtitle, note: optionalString(input.note), bgPos, bgImage, bgImageMobile };
+  return { id, title, subtitle, note: optionalString(input.note), description, bgPos, bgImage, bgImageMobile };
 }
 
 export async function updateRegion(id: string, input: Partial<RegionInput>): Promise<Region> {
@@ -82,6 +109,8 @@ export async function updateRegion(id: string, input: Partial<RegionInput>): Pro
   if (input.title !== undefined) patch.title = requireNonEmpty(input.title, "標題");
   if (input.subtitle !== undefined) patch.subtitle = requireNonEmpty(input.subtitle, "副標題");
   if (input.note !== undefined) patch.note = optionalString(input.note);
+  if (input.description !== undefined)
+    patch.description = optionalLongText(input.description, "分頁介紹", REGION_DESCRIPTION_MAX_LENGTH);
   if (input.bgPos !== undefined) patch.bgPos = requireNonEmpty(input.bgPos, "底圖定位");
   if (input.bgImage !== undefined) patch.bgImage = requireNonEmpty(input.bgImage, "電腦版底圖");
   if (input.bgImageMobile !== undefined)
@@ -99,10 +128,39 @@ export async function updateRegion(id: string, input: Partial<RegionInput>): Pro
     title: updated.title,
     subtitle: updated.subtitle,
     note: updated.note,
+    description: updated.description,
     bgPos: updated.bgPos,
     bgImage: updated.bgImage,
     bgImageMobile: updated.bgImageMobile,
   };
+}
+
+/**
+ * 後台「分區順序與名稱」一次儲存：items 的陣列順序就是新的前台分頁順序，同時更新每個分區的標題。
+ * 必須剛好包含目前所有分區（不多不少），避免拿到過期清單時把別人剛新增的分區順序弄亂。
+ * 用 db.batch 一次寫入，不會只改到一半。
+ */
+export async function reorderRegions(items: { id: string; title: string }[]): Promise<void> {
+  if (!Array.isArray(items) || items.length === 0) throw new AdminValidationError("分區清單不可為空");
+  const db = await getDb();
+  const existing = await db.select({ id: regionsTable.id }).from(regionsTable).all();
+  const existingIds = new Set(existing.map((r) => r.id));
+  const seen = new Set<string>();
+  const rows = items.map((item, index) => {
+    if (!item || typeof item.id !== "string" || !existingIds.has(item.id) || seen.has(item.id)) {
+      throw new AdminValidationError("分區清單已過期，請重新整理頁面後再試");
+    }
+    seen.add(item.id);
+    return { id: item.id, title: requireNonEmpty(item.title, "分區名稱").trim(), sortOrder: index };
+  });
+  if (seen.size !== existingIds.size) {
+    throw new AdminValidationError("分區清單已過期，請重新整理頁面後再試");
+  }
+
+  const [first, ...rest] = rows.map((row) =>
+    db.update(regionsTable).set({ title: row.title, sortOrder: row.sortOrder }).where(eq(regionsTable.id, row.id)),
+  );
+  await db.batch([first, ...rest]);
 }
 
 export async function deleteRegion(id: string): Promise<void> {
@@ -212,6 +270,8 @@ export interface ProductInput {
   name: string;
   region: string;
   prices?: Record<"30" | "80" | "150", number> | null;
+  /** 自訂購買選項；null 代表不提供 */
+  customOption?: { label: string; price: number } | null;
   note?: string | null;
   statusId: string;
   sortOrder?: number;
@@ -244,6 +304,28 @@ function validatePrices(
   return { price30: prices["30"], price80: prices["80"], price150: prices["150"] };
 }
 
+function validateCustomOption(
+  option: { label: string; price: number } | null | undefined,
+): { customOptionLabel: string | null; customOptionPrice: number | null } {
+  if (!option) return { customOptionLabel: null, customOptionPrice: null };
+  const label = typeof option.label === "string" ? option.label.trim() : "";
+  if (!label) throw new AdminValidationError("請填寫自訂選項名稱");
+  if (label.length > CUSTOM_OPTION_LABEL_MAX_LENGTH) {
+    throw new AdminValidationError(`自訂選項名稱請勿超過 ${CUSTOM_OPTION_LABEL_MAX_LENGTH} 字`);
+  }
+  const price = option.price;
+  if (typeof price !== "number" || !Number.isInteger(price) || price < 0) {
+    throw new AdminValidationError("自訂選項價格需為 0 或正整數");
+  }
+  return { customOptionLabel: label, customOptionPrice: price };
+}
+
+function toCustomOption(row: { customOptionLabel: string | null; customOptionPrice: number | null }) {
+  return row.customOptionLabel && row.customOptionPrice !== null
+    ? { label: row.customOptionLabel, price: row.customOptionPrice }
+    : null;
+}
+
 async function loadProductImages(db: Awaited<ReturnType<typeof getDb>>, productId: string): Promise<string[]> {
   const rows = await loadProductImagesWithId(db, productId);
   return rows.map((r) => r.url);
@@ -273,6 +355,16 @@ export async function getProductImagesWithId(productId: string): Promise<Product
   return loadProductImagesWithId(db, productId);
 }
 
+/** 某分區目前最後一個商品之後的排序值（新商品／換到這個分區的商品排在最後面）。 */
+async function nextProductSortOrder(db: Awaited<ReturnType<typeof getDb>>, regionId: string): Promise<number> {
+  const last = await db
+    .select({ max: sql<number | null>`max(${productsTable.sortOrder})` })
+    .from(productsTable)
+    .where(eq(productsTable.regionId, regionId))
+    .get();
+  return (last?.max ?? -1) + 1;
+}
+
 export async function createProduct(input: ProductInput): Promise<Product> {
   const db = await getDb();
   const id = requireNonEmpty(input.id ?? crypto.randomUUID(), "商品代碼");
@@ -282,6 +374,7 @@ export async function createProduct(input: ProductInput): Promise<Product> {
   await assertRegionExists(db, region);
   await assertStatusExists(db, statusId);
   const { price30, price80, price150 } = validatePrices(input.prices);
+  const custom = validateCustomOption(input.customOption);
 
   await db.insert(productsTable).values({
     id,
@@ -290,9 +383,10 @@ export async function createProduct(input: ProductInput): Promise<Product> {
     price30,
     price80,
     price150,
+    ...custom,
     note: optionalString(input.note),
     statusId,
-    sortOrder: input.sortOrder ?? 0,
+    sortOrder: input.sortOrder ?? (await nextProductSortOrder(db, region)),
   });
 
   return {
@@ -300,10 +394,36 @@ export async function createProduct(input: ProductInput): Promise<Product> {
     name,
     region,
     prices: input.prices ?? null,
+    customOption: toCustomOption(custom),
     note: optionalString(input.note),
     statusId,
     images: [],
   };
+}
+
+/**
+ * 後台拖移排序：ids 的陣列順序就是該分區新的商品順序（前台同一分頁內的排列）。
+ * 必須剛好包含該分區目前所有商品，避免用過期清單覆蓋；db.batch 一次寫入。
+ */
+export async function reorderProducts(regionId: string, ids: string[]): Promise<void> {
+  const region = requireNonEmpty(regionId, "分區");
+  if (!Array.isArray(ids) || ids.length === 0) throw new AdminValidationError("商品清單不可為空");
+  const db = await getDb();
+  const existing = await db
+    .select({ id: productsTable.id })
+    .from(productsTable)
+    .where(eq(productsTable.regionId, region))
+    .all();
+  const existingIds = new Set(existing.map((p) => p.id));
+  const unique = new Set(ids);
+  if (unique.size !== ids.length || unique.size !== existingIds.size || ids.some((id) => !existingIds.has(id))) {
+    throw new AdminValidationError("商品清單已過期，請重新整理頁面後再試");
+  }
+
+  const [first, ...rest] = ids.map((id, index) =>
+    db.update(productsTable).set({ sortOrder: index }).where(eq(productsTable.id, id)),
+  );
+  await db.batch([first, ...rest]);
 }
 
 export async function updateProduct(id: string, input: Partial<ProductInput>): Promise<Product> {
@@ -317,6 +437,9 @@ export async function updateProduct(id: string, input: Partial<ProductInput>): P
     const region = requireNonEmpty(input.region, "分區");
     await assertRegionExists(db, region);
     patch.regionId = region;
+    if (region !== existing.regionId && input.sortOrder === undefined) {
+      patch.sortOrder = await nextProductSortOrder(db, region);
+    }
   }
   if (input.statusId !== undefined) {
     const statusId = requireNonEmpty(input.statusId, "狀態");
@@ -331,6 +454,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>): P
     patch.price80 = price80;
     patch.price150 = price150;
   }
+  if (input.customOption !== undefined) Object.assign(patch, validateCustomOption(input.customOption));
 
   if (Object.keys(patch).length > 0) {
     await db.update(productsTable).set(patch).where(eq(productsTable.id, id));
@@ -348,6 +472,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>): P
     prices: hasPrices
       ? { "30": updated.price30 as number, "80": updated.price80 as number, "150": updated.price150 as number }
       : null,
+    customOption: toCustomOption(updated),
     note: updated.note,
     statusId: updated.statusId,
     images,
@@ -410,6 +535,32 @@ export async function deleteProductImage(productId: string, imageId: number): Pr
     throw new AdminValidationError("找不到這張圖片");
   }
   await db.delete(productImagesTable).where(eq(productImagesTable.id, imageId));
+  return loadProductImagesWithId(db, productId);
+}
+
+/**
+ * 後台拖移調整商品圖片順序：imageIds 的陣列順序就是新的顯示順序（前台縮圖、燈箱都依這個順序）。
+ * 必須剛好包含該商品目前所有圖片，避免用過期清單覆蓋；db.batch 一次寫入。
+ */
+export async function reorderProductImages(productId: string, imageIds: number[]): Promise<ProductImageWithId[]> {
+  const db = await getDb();
+  const existing = await loadProductImagesWithId(db, productId);
+  const existingIds = new Set(existing.map((img) => img.id));
+  const unique = new Set(imageIds);
+  if (
+    !Array.isArray(imageIds) ||
+    unique.size !== imageIds.length ||
+    unique.size !== existingIds.size ||
+    imageIds.some((id) => !existingIds.has(id))
+  ) {
+    throw new AdminValidationError("圖片清單已過期，請重新整理頁面後再試");
+  }
+  if (imageIds.length > 0) {
+    const [first, ...rest] = imageIds.map((id, index) =>
+      db.update(productImagesTable).set({ sortOrder: index }).where(eq(productImagesTable.id, id)),
+    );
+    await db.batch([first, ...rest]);
+  }
   return loadProductImagesWithId(db, productId);
 }
 
@@ -665,6 +816,8 @@ const SETTINGS_KEY_VALIDATORS: Record<string, (value: unknown) => string> = {
   "theme.colorTitle": (v) => validateHexColorSetting(v),
   "theme.colorItem": (v) => validateHexColorSetting(v),
   "theme.colorPrice": (v) => validateHexColorSetting(v),
+  "theme.scaleMemberNote": (v) => validateScale(v),
+  "content.memberNote": (v) => validateLongText(v, MEMBER_NOTE_MAX_LENGTH),
   "shipping.freeThreshold": (v) => validateNonNegativeInt(v),
   "shipping.fee": (v) => validateNonNegativeInt(v),
   "notify.shopEmail": (v) => validateEmailSetting(v),
@@ -672,6 +825,14 @@ const SETTINGS_KEY_VALIDATORS: Record<string, (value: unknown) => string> = {
   "branding.linePayQrImage": (v) => validateNonEmptySetting(v),
   "weightOptions": (v) => validateWeightOptions(v),
 };
+
+/** 多行文字設定；允許空字串（代表不顯示），統一換行符號並去掉頭尾空白 */
+function validateLongText(v: unknown, maxLength: number): string {
+  if (typeof v !== "string") throw new AdminValidationError("欄位格式錯誤");
+  const text = v.replace(/\r\n?/g, "\n").trim();
+  if (text.length > maxLength) throw new AdminValidationError(`內容請勿超過 ${maxLength} 字`);
+  return text;
+}
 
 function validateScale(v: unknown): string {
   const n = Number(v);
@@ -766,6 +927,7 @@ export interface AdminOrder {
   paymentMethod: "bank" | "linepay";
   bankTransferLast5: string | null;
   linePayLast3: string | null;
+  note: string | null;
   subtotal: number;
   bundleDiscountAmount: number;
   bundleName: string | null;
@@ -794,6 +956,7 @@ function mapOrderRowWithoutItems(row: typeof ordersTable.$inferSelect): Omit<Adm
     paymentMethod: row.paymentMethod,
     bankTransferLast5: row.bankTransferLast5,
     linePayLast3: row.linePayLast3,
+    note: row.note,
     subtotal: row.subtotal,
     bundleDiscountAmount: row.bundleDiscountAmount,
     bundleName: row.bundleName,

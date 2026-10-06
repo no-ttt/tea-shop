@@ -8,6 +8,8 @@ export default async function AdminSettingsPage() {
       shipping={settings.shipping}
       shopEmail={settings.notify.shopEmail}
       linePayQrImage={settings.branding.linePayQrImage}
+      memberNote={settings.content.memberNote}
+      memberNoteScale={settings.theme.scaleMemberNote}
     />
   );
 }
