@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { CUSTOM_OPTION_LABEL_MAX_LENGTH, type Product, type ProductStatus, type Region } from "@/lib/types";
+import { type Product, type ProductStatus, type Region } from "@/lib/types";
 import ImageUploadButton from "./ImageUploadButton";
 import ConfirmDialog from "./ConfirmDialog";
 import { useDragReorder } from "./useDragReorder";
@@ -886,7 +886,6 @@ function ProductForm({
           <label>自訂選項名稱（選填，例如「禮盒裝」）</label>
           <input
             className={styles.input}
-            maxLength={CUSTOM_OPTION_LABEL_MAX_LENGTH}
             placeholder="不填則不提供"
             value={customLabel}
             onChange={(e) => setCustomLabel(e.target.value)}

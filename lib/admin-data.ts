@@ -15,7 +15,6 @@ import {
   orderFailureLogs as orderFailureLogsTable,
 } from "./db/schema";
 import {
-  CUSTOM_OPTION_LABEL_MAX_LENGTH,
   MEMBER_NOTE_MAX_LENGTH,
   ORDER_STATUSES,
   REGION_DESCRIPTION_MAX_LENGTH,
@@ -310,9 +309,6 @@ function validateCustomOption(
   if (!option) return { customOptionLabel: null, customOptionPrice: null };
   const label = typeof option.label === "string" ? option.label.trim() : "";
   if (!label) throw new AdminValidationError("請填寫自訂選項名稱");
-  if (label.length > CUSTOM_OPTION_LABEL_MAX_LENGTH) {
-    throw new AdminValidationError(`自訂選項名稱請勿超過 ${CUSTOM_OPTION_LABEL_MAX_LENGTH} 字`);
-  }
   const price = option.price;
   if (typeof price !== "number" || !Number.isInteger(price) || price < 0) {
     throw new AdminValidationError("自訂選項價格需為 0 或正整數");

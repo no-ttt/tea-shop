@@ -35,9 +35,6 @@ export interface Product {
 /** 前台選購時選到的規格：克數，或商品的自訂選項 */
 export type ProductOptionSelection = number | "custom";
 
-/** 自訂選項名稱字數上限（後台輸入框與伺服器驗證共用） */
-export const CUSTOM_OPTION_LABEL_MAX_LENGTH = 12;
-
 export interface CustomerField {
   id: string;
   label: string;
