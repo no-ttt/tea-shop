@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // staging 站（npm run cf:deploy:staging 建置時帶 SITE_ENV=staging）一律回 noindex，
+  // 避免網址外流後被搜尋引擎收錄、客人誤到測試站下單。這是建置期決定的，正式站的建置結果不受影響。
+  async headers() {
+    if (process.env.SITE_ENV !== "staging") return [];
+    return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
+  },
 };
 
 export default nextConfig;

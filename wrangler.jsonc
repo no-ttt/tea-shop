@@ -34,4 +34,32 @@
   // 被整批清空過一次）。正式環境的值一律只用 `wrangler secret put` 管理；本地開發用
   // .dev.vars（已加進 .gitignore，不進版控）。型別透過 worker-configuration.d.ts 手動維護
   // （執行 `npx wrangler types` 前記得留意它會依這裡的 vars 重新產生，目前刻意不重新產生）。
+
+  // 上面的設定就是正式環境（production）；不加 --env 的 wrangler 指令一律作用在正式環境。
+  // staging 是另一個獨立的 Worker，有自己的 D1、R2 與 secrets（`wrangler secret put X --env staging`），
+  // 用 `npm run cf:deploy:staging` 部署。
+  // 注意：d1_databases / r2_buckets 等 binding「不會」從上層繼承，env 區塊裡一定要完整重寫，
+  // 漏寫的話 staging 會連不到資料庫；name/main/assets/compatibility_* 則會繼承上層。
+  "env": {
+    "staging": {
+      "name": "qiwish-nextjs-staging",
+      // 不提供 <版本>-qiwish-nextjs-staging.*.workers.dev 預覽網址（用不到，且會是另一個公開入口）。
+      // 寫在這裡而不是只在後台關：每次 wrangler deploy 都會依設定檔重新同步這個開關。
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "qiwish-db-staging",
+          "database_id": "d5f5666f-cfc5-40f2-8072-ac74c6ceea8f",
+          "migrations_dir": "drizzle/migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "qiwish-images-staging"
+        }
+      ]
+    }
+  }
 }

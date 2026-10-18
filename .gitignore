@@ -44,4 +44,7 @@ next-env.d.ts
 # cloudflare / wrangler
 .wrangler/
 .open-next/
-.dev.vars
+.dev.vars*
+
+# 資料庫匯出／圖片備份（含顧客個資，不可上傳）
+/backups/

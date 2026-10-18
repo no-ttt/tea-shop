@@ -44,3 +44,4 @@
 - Resend 寄件網域驗證（DNS 設定）——正式環境寄信前需要在 Resend 完成；開發階段可先用 sandbox 模式測試。
 - 正式環境的 secrets 設定：`wrangler secret put RESEND_API_KEY` / `EMAIL_FROM` / `ADMIN_PASSWORD` / `SESSION_SECRET`。
 - 確認 `wrangler.jsonc` 的 D1 `database_id` 已填入正式資料庫 ID，並已對正式（`--remote`）資料庫套用過 migration 與 seed。
+- staging 環境的一次性建立：建立 `qiwish-db-staging`／`qiwish-images-staging`、填回 `database_id`、migrate + seed、`npm run secrets:set:staging`、部署、設定 Cloudflare Access。步驟見 README「Staging 環境」。
