@@ -30,10 +30,17 @@
   color: var(--accent);
 }
 
+/* ≤800px 時 ScrollToCart 也會出現（疊在 ContactButton 上方），回到頂部再往上一格 */
+@media (max-width: 800px) {
+  .btn {
+    bottom: 128px;
+  }
+}
+
 @media (max-width: 480px) {
   .btn {
     right: 14px;
-    bottom: 64px;
+    bottom: 110px;
     width: 38px;
     height: 38px;
     font-size: 16px;

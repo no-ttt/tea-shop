@@ -1,0 +1,43 @@
+/* 一直顯示，固定在右下角最底層；ScrollToCart / BackToTop 疊在它上方 */
+.btn {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: var(--card-bg);
+  backdrop-filter: blur(8px);
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 480px) {
+  .btn {
+    right: 14px;
+    bottom: 18px;
+    width: 38px;
+    height: 38px;
+  }
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+}

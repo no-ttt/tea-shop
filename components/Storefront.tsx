@@ -21,6 +21,7 @@ import { calcOrderTotals } from "@/lib/pricing";
 import type { PolicyKey } from "@/lib/policy-content";
 import BackToTop from "./BackToTop";
 import ScrollToCart from "./ScrollToCart";
+import ContactButton from "./ContactButton";
 import RegionBackground from "./RegionBackground";
 import RegionTabs from "./RegionTabs";
 import ProductList from "./ProductList";
@@ -422,6 +423,7 @@ export default function Storefront({
 
       <BackToTop />
       <ScrollToCart />
+      <ContactButton />
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
 
